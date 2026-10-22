@@ -472,10 +472,21 @@ def run_pipeline(
     if inspect_only:
         return result
 
-    df[SPLIT_COL] = group_stratified_split(df, fractions=fractions, seed=seed)
+    
+    df[SPLIT_COL] = group_stratified_split(
+        df, fractions=fractions, seed=seed
+    )
     parts = {name: df[df[SPLIT_COL] == name] for name in SPLIT_NAMES}
     leakage = check_leakage(parts, near_threshold=near_threshold)
+
+    if not leakage["all_passed"]:
+       raise RuntimeError(
+           "Leakage checks failed; split files were not saved. "
+           f"Details: {leakage}"
+    )
+
     split_info = save_splits(df, processed_dir)
+
     manifest = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "seed": seed,
