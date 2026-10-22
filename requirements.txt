@@ -1,0 +1,8 @@
+# Phase 1 (data pipeline + tests). Versions below are the ones the tests were actually run with.
+# Later phases add: torch, transformers, datasets, sentence-transformers, chromadb, flask, spacy, networkx.
+pandas>=2.2        # tested with 3.0.5
+numpy>=1.26
+scikit-learn>=1.4  # tested with 1.9.1
+scipy>=1.11
+pytest>=8          # dev
+nbformat>=5        # dev (notebook generation/validation)
