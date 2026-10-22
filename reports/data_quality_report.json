@@ -1,0 +1,209 @@
+{
+  "raw_file": "C:\\Users\\VEENA S B\\Downloads\\job-scam-detection-phase1\\job-scam-detection\\data\\raw\\fake_job_postings.csv",
+  "raw_sha256": "25e52f6d34939510f3f2ca5afc55ccfe7259ccc01283319bd484c466ea88baaf",
+  "schema": {
+    "n_rows": 17880,
+    "n_cols": 19,
+    "warnings": [
+      "Unexpected extra columns kept as-is: ['in_balanced_dataset']"
+    ]
+  },
+  "profile": {
+    "n_rows": 17880,
+    "label_counts": {
+      "0": 17014,
+      "1": 866
+    },
+    "fraud_rate": 0.04843400447427293,
+    "missingness": {
+      "title": {
+        "missing": 0,
+        "missing_pct": 0.0,
+        "missing_pct_in_fraud": 0.0,
+        "missing_pct_in_legit": 0.0
+      },
+      "company_profile": {
+        "missing": 3308,
+        "missing_pct": 18.501118568232663,
+        "missing_pct_in_fraud": 67.78290993071595,
+        "missing_pct_in_legit": 15.992711884330552
+      },
+      "description": {
+        "missing": 1,
+        "missing_pct": 0.005592841163310962,
+        "missing_pct_in_fraud": 0.11547344110854503,
+        "missing_pct_in_legit": 0.0
+      },
+      "requirements": {
+        "missing": 2696,
+        "missing_pct": 15.078299776286352,
+        "missing_pct_in_fraud": 17.66743648960739,
+        "missing_pct_in_legit": 14.946514635006466
+      },
+      "benefits": {
+        "missing": 7215,
+        "missing_pct": 40.35234899328859,
+        "missing_pct_in_fraud": 41.916859122401846,
+        "missing_pct_in_legit": 40.272716586340664
+      },
+      "location": {
+        "missing": 346,
+        "missing_pct": 1.9351230425055927,
+        "missing_pct_in_fraud": 2.1939953810623556,
+        "missing_pct_in_legit": 1.921946632185259
+      },
+      "department": {
+        "missing": 11547,
+        "missing_pct": 64.58053691275167,
+        "missing_pct_in_fraud": 61.316397228637406,
+        "missing_pct_in_legit": 64.7466792053603
+      },
+      "salary_range": {
+        "missing": 15012,
+        "missing_pct": 83.95973154362416,
+        "missing_pct_in_fraud": 74.24942263279446,
+        "missing_pct_in_legit": 84.453979076055
+      },
+      "telecommuting": {
+        "missing": 0,
+        "missing_pct": 0.0,
+        "missing_pct_in_fraud": 0.0,
+        "missing_pct_in_legit": 0.0
+      },
+      "has_company_logo": {
+        "missing": 0,
+        "missing_pct": 0.0,
+        "missing_pct_in_fraud": 0.0,
+        "missing_pct_in_legit": 0.0
+      },
+      "has_questions": {
+        "missing": 0,
+        "missing_pct": 0.0,
+        "missing_pct_in_fraud": 0.0,
+        "missing_pct_in_legit": 0.0
+      },
+      "employment_type": {
+        "missing": 3471,
+        "missing_pct": 19.41275167785235,
+        "missing_pct_in_fraud": 27.829099307159353,
+        "missing_pct_in_legit": 18.984365816386507
+      },
+      "required_experience": {
+        "missing": 7050,
+        "missing_pct": 39.42953020134228,
+        "missing_pct_in_fraud": 50.23094688221709,
+        "missing_pct_in_legit": 38.879746091454095
+      },
+      "required_education": {
+        "missing": 8105,
+        "missing_pct": 45.32997762863535,
+        "missing_pct_in_fraud": 52.078521939953816,
+        "missing_pct_in_legit": 44.9864817209357
+      },
+      "industry": {
+        "missing": 4903,
+        "missing_pct": 27.421700223713646,
+        "missing_pct_in_fraud": 31.755196304849886,
+        "missing_pct_in_legit": 27.201128482426235
+      },
+      "function": {
+        "missing": 6455,
+        "missing_pct": 36.10178970917226,
+        "missing_pct_in_fraud": 38.91454965357968,
+        "missing_pct_in_legit": 35.95862231103797
+      }
+    },
+    "text_length_words": {
+      "all": {
+        "mean": 398.82835570469797,
+        "median": 373.0,
+        "p90": 679.0,
+        "p99": 1025.0,
+        "max": 2120
+      },
+      "fraud": {
+        "mean": 301.5381062355658,
+        "median": 247.0,
+        "p90": 607.5,
+        "p99": 993.4000000000005,
+        "max": 1425
+      },
+      "legit": {
+        "mean": 403.7803573527683,
+        "median": 378.0,
+        "p90": 681.7000000000007,
+        "p99": 1027.609999999997,
+        "max": 2120
+      }
+    },
+    "text_length_chars": {
+      "mean": 2719.2478187919464,
+      "median": 2576.0,
+      "p90": 4638.0,
+      "p99": 6966.259999999995,
+      "max": 14865
+    },
+    "pct_over_200_words": 81.59395973154362,
+    "empty_text_rows": 0,
+    "html_tag_rows": 17863,
+    "contact_patterns": {
+      "rows_with_email_like": 1,
+      "rows_with_url_like": 443,
+      "rows_with_phone_like": 7398,
+      "rows_with_placeholder_tokens": 8176,
+      "placeholder_token_total": 26363,
+      "note": "Pattern-based counts; phone regex is loose and over-counts digit sequences. Placeholder tokens (#URL_xxx#, #EMAIL_xxx#, #PHONE_xxx#) indicate redaction. Confirm by manual inspection."
+    }
+  },
+  "duplicates": {
+    "near_threshold": 0.9,
+    "n_rows": 17880,
+    "n_groups": 12793,
+    "rows_in_multi_member_groups": 6773,
+    "n_multi_member_groups": 1686,
+    "exact_duplicate_rows_beyond_first": 2153,
+    "largest_group_size": 415,
+    "largest_group_pct_of_rows": 2.321029082774049,
+    "group_size_distribution": {
+      "1": 11107,
+      "2": 1085,
+      "3": 228,
+      "4": 90,
+      "5": 60,
+      "6": 51,
+      "7": 29,
+      "8": 17,
+      "9": 9,
+      "10": 23,
+      "11": 24,
+      "12": 14,
+      "13": 7,
+      "14": 6,
+      "15": 3,
+      "16": 3,
+      "17": 1,
+      "18": 1,
+      "19": 6,
+      "20": 5,
+      "21": 4,
+      "22": 3,
+      "23": 1,
+      "24": 1,
+      "25": 2,
+      "26": 1,
+      "27": 1,
+      "33": 1,
+      "34": 1,
+      "39": 1,
+      "42": 1,
+      "46": 1,
+      "47": 1,
+      "52": 1,
+      "74": 1,
+      "117": 1,
+      "155": 1,
+      "415": 1
+    },
+    "groups_with_conflicting_labels": 2
+  }
+}

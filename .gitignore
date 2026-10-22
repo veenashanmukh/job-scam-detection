@@ -1,0 +1,57 @@
+# Secrets
+.env
+*.key
+
+# Data (large / licence-restricted): do not commit
+data/raw/*
+data/processed/*.csv
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Model checkpoints and indexes (large)
+backend/models/*
+!backend/models/.gitkeep
+chroma_db/
+*.pt
+*.safetensors
+*.bin
+
+# Private chat uploads
+uploads/
+*.chat.txt
+
+# Python / Node / notebooks
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+node_modules/
+dist/
+
+# Virtual environments
+.venv/
+**/.venv/
+venv/
+env/
+
+# Environment variables and credentials
+.env.*
+!.env.example
+secrets/
+*.pem
+
+# Generated reports containing raw job-posting text
+reports/conflict_groups.csv
+
+# Test and coverage artifacts
+.coverage
+htmlcov/
+coverage.xml
+
+# Editor and OS files
+.idea/
+.DS_Store
+Thumbs.db
+reports/conflict_groups.csv
