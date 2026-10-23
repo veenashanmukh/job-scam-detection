@@ -23,17 +23,26 @@ def main() -> int:
     ap.add_argument("--out", default=str(ROOT / "data/processed"))
     ap.add_argument("--report-dir", default=str(ROOT / "reports"))
     ap.add_argument("--near-threshold", type=float, default=dataset.DEFAULT_NEAR_THRESHOLD)
+    ap.add_argument("--grouping-margin", type=float, default=0.0,
+                    help="group at (near-threshold - margin) for a stricter buffer; the leakage gate stays at near-threshold")
     ap.add_argument("--seed", type=int, default=dataset.SEED)
     ap.add_argument("--inspect-only", action="store_true")
     args = ap.parse_args()
 
+    if not args.inspect_only and (Path(args.out) / "split_manifest.json").exists():
+        print(f"NOTE: {args.out} already holds a split_manifest.json. Those files are STALE unless this run "
+              "succeeds; prefer a fresh --out directory and run scripts/verify_splits.py afterwards.", file=sys.stderr)
     try:
         result = dataset.run_pipeline(
-            args.raw, args.out, near_threshold=args.near_threshold, seed=args.seed, inspect_only=args.inspect_only
+            args.raw, args.out, near_threshold=args.near_threshold, seed=args.seed, inspect_only=args.inspect_only,
+            grouping_margin=args.grouping_margin,
         )
     except FileNotFoundError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
+    except (dataset.GroupTooLargeError, dataset.ResolutionInconsistencyError) as e:
+        print(f"GROUPING ERROR (no split files written): {e}", file=sys.stderr)
+        return 4
     except dataset.SchemaError as e:
         print(f"SCHEMA ERROR: {e}", file=sys.stderr)
         return 3
