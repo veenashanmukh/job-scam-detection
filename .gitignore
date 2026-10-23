@@ -55,3 +55,6 @@ coverage.xml
 .DS_Store
 Thumbs.db
 reports/conflict_groups.csv
+data/processed_*/
+
+reports/candidate/
