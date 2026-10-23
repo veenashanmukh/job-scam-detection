@@ -1,1 +1,6 @@
 person,experiment,model,metric,value,date
+YOURNAME,baseline_val,tfidf_lr,val_fraud_precision,0.8,2026-10-23
+YOURNAME,baseline_val,tfidf_lr,val_fraud_recall,0.84375,2026-10-23
+YOURNAME,baseline_val,tfidf_lr,val_fraud_f1,0.821293,2026-10-23
+YOURNAME,baseline_val,tfidf_lr,val_pr_auc,0.875766,2026-10-23
+YOURNAME,baseline_val,tfidf_lr,val_roc_auc,0.989831,2026-10-23

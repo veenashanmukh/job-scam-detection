@@ -1,0 +1,105 @@
+{
+  "model": "tfidf_lr",
+  "evaluated_split": "val",
+  "test_split_loaded": false,
+  "seed": 42,
+  "n_bootstrap": 1000,
+  "split_manifest_sha256": "846134a611e09b4fd25b215983e9f44c82919dcf449fcd37c5475f1d16673e80",
+  "split_file_sha256": {
+    "train": "772a9abbce5a37e324129335f52de72c29b4c40e9b6e4b15bee2ab1a1fd3f54c",
+    "val": "c0b3ce75ef772d6fb0289776119c1a8188560505491a24fc9c752c7dcecf5cf0",
+    "test": "46e46b3e91197f8e0749028375be2ca7957f251d1a0ee4a10d2565565082492f"
+  },
+  "pipeline_code_sha256_in_manifest": "973332b391bd372e07b09d182485ceeff98e65fc9d885dde41b03fc791c4d810",
+  "baseline_code_sha256": "167ec3fe5b5d6a331a37f592fe92550de7211b08df54942ad7aa06d5e860406a",
+  "versions": {
+    "python": "3.14.0",
+    "scikit-learn": "1.9.1",
+    "numpy": "2.5.4",
+    "pandas": "3.1.0"
+  },
+  "features": "word 1-2gram TF-IDF, sublinear_tf, min_df=2, max_features=300000; fit on train only",
+  "classifier": "LogisticRegression(class_weight='balanced', solver='liblinear')",
+  "vocab_size": 300000,
+  "c_grid_results": [
+    {
+      "C": 0.1,
+      "val_average_precision": 0.78369693273484
+    },
+    {
+      "C": 0.3,
+      "val_average_precision": 0.8141314771094134
+    },
+    {
+      "C": 1.0,
+      "val_average_precision": 0.8404957739285583
+    },
+    {
+      "C": 3.0,
+      "val_average_precision": 0.8596771238401066
+    },
+    {
+      "C": 10.0,
+      "val_average_precision": 0.8698503642057163
+    },
+    {
+      "C": 30.0,
+      "val_average_precision": 0.8757664317403778
+    }
+  ],
+  "chosen_C": 30.0,
+  "threshold_rule": "max_f1",
+  "min_precision": null,
+  "frozen_threshold": -1.5159855432294709,
+  "threshold_note": "applied to LogisticRegression decision_function (log-odds); predict fraud if score >= threshold",
+  "val": {
+    "threshold": -1.5159855432294709,
+    "precision": 0.8,
+    "recall": 0.84375,
+    "f1": 0.8212927756653993,
+    "tp": 108,
+    "fp": 27,
+    "fn": 20,
+    "tn": 2526,
+    "n_fraud": 128,
+    "n": 2681,
+    "average_precision": 0.8757664317403778,
+    "roc_auc": 0.9898312034860949
+  },
+  "val_bootstrap_95ci": {
+    "precision": [
+      0.7428571428571429,
+      0.8615447154471545
+    ],
+    "recall": [
+      0.78125,
+      0.8984375
+    ],
+    "f1": [
+      0.7759916349809887,
+      0.8696063899868247
+    ],
+    "average_precision": [
+      0.8303597620477132,
+      0.9197846167279584
+    ]
+  },
+  "train_at_same_threshold": {
+    "threshold": -1.5159855432294709,
+    "precision": 0.9753694581280788,
+    "recall": 1.0,
+    "f1": 0.9875311720698255,
+    "tp": 594,
+    "fp": 15,
+    "fn": 0,
+    "tn": 11895,
+    "n_fraud": 594,
+    "n": 12504,
+    "average_precision": 1.0,
+    "roc_auc": 1.0
+  },
+  "split_sizes": {
+    "train": 12504,
+    "val": 2681
+  }
+}
