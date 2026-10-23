@@ -36,6 +36,9 @@ REQUIRED_COLUMNS = [ID_COL, LABEL_COL, *TEXT_FIELDS]
 SPLIT_NAMES = ("train", "val", "test")
 DEFAULT_FRACTIONS = (0.70, 0.15, 0.15)
 DEFAULT_NEAR_THRESHOLD = 0.90
+# Float tolerance applied identically in grouping and in the leakage check, so a pair sitting on the threshold
+# cannot be grouped by one and missed by the other because of last-bit rounding. Conservative (treats it as duplicate).
+NEAR_EPS = 1e-9
 
 _HTML_TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"\s+")
@@ -256,6 +259,22 @@ def _tfidf(norm_texts: pd.Series | list[str]):
     return vec.fit_transform(norm_texts)
 
 
+def near_duplicate_pairs(norm_texts: list[str], threshold: float = DEFAULT_NEAR_THRESHOLD,
+                         chunk: int = 500) -> list[tuple[int, int, float]]:
+    """All (i, j, cosine), i < j, with cosine >= threshold on ONE TF-IDF fit over `norm_texts`.
+    This is the single similarity definition shared by grouping and the leakage check."""
+    if len(norm_texts) < 2:
+        return []
+    X = _tfidf(norm_texts)
+    out: list[tuple[int, int, float]] = []
+    for start in range(0, len(norm_texts), chunk):
+        S = (X[start:start + chunk] @ X.T).tocoo()
+        rows = S.row + start
+        keep = (S.data >= threshold - NEAR_EPS) & (rows < S.col)
+        out.extend((int(r), int(c), float(v)) for r, c, v in zip(rows[keep], S.col[keep], S.data[keep]))
+    return out
+
+
 def assign_duplicate_groups(
     df: pd.DataFrame, near_threshold: float = DEFAULT_NEAR_THRESHOLD, chunk: int = 500
 ) -> tuple[pd.Series, dict]:
@@ -282,14 +301,8 @@ def assign_duplicate_groups(
             first_seen[key] = i
 
     nonempty = np.flatnonzero((norm.str.len() > 0).to_numpy())
-    if len(nonempty) > 1:
-        X = _tfidf(norm.iloc[nonempty])
-        for start in range(0, len(nonempty), chunk):
-            S = (X[start:start + chunk] @ X.T).tocoo()
-            rows = S.row + start
-            keep = (S.data >= near_threshold) & (rows < S.col)
-            for r, c in zip(rows[keep], S.col[keep]):
-                uf.union(int(nonempty[r]), int(nonempty[c]))
+    for r, c, _ in near_duplicate_pairs(norm.iloc[nonempty].tolist(), near_threshold, chunk):
+        uf.union(int(nonempty[r]), int(nonempty[c]))
 
     roots = np.array([uf.find(i) for i in range(n)])
     # group id = smallest job_id within each root's members
@@ -345,7 +358,9 @@ def group_stratified_split(
 
 # --------------------------------------------------------------------------- leakage checks
 def max_cross_similarity(a_texts: list[str], b_texts: list[str], chunk: int = 500) -> np.ndarray:
-    """For each text in A, the max cosine similarity to any text in B (TF-IDF fit on A+B, normalised texts)."""
+    """LEGACY, split-dependent: max cosine of each A text to B with TF-IDF fit on A+B only. The value for a given pair
+    changes with which other rows are in A and B, so it is NOT used for gating any more (see check_leakage); kept for
+    diagnostics."""
     if not a_texts or not b_texts:
         return np.zeros(len(a_texts))
     X = _tfidf(list(a_texts) + list(b_texts))
@@ -354,6 +369,23 @@ def max_cross_similarity(a_texts: list[str], b_texts: list[str], chunk: int = 50
     for start in range(0, len(a_texts), chunk):
         S = XA[start:start + chunk] @ XB.T
         out[start:start + chunk] = S.max(axis=1).toarray().ravel()
+    return out
+
+
+def _corpus_split_matrices(splits: dict[str, pd.DataFrame]) -> dict[str, tuple]:
+    """One TF-IDF fit over every non-empty normalised text in all splits; returns {name: (matrix_rows, positions)}.
+    Because the fit is over the whole corpus, a pair's similarity does not depend on how rows are split."""
+    names = list(splits)
+    norm = {k: splits[k]["text"].map(normalize_for_dedupe).tolist() for k in names}
+    pos = {k: [i for i, t in enumerate(norm[k]) if t] for k in names}
+    texts = [norm[k][i] for k in names for i in pos[k]]
+    if not texts:
+        return {}
+    X = _tfidf(texts)
+    out, off = {}, 0
+    for k in names:
+        out[k] = (X[off:off + len(pos[k])], pos[k])
+        off += len(pos[k])
     return out
 
 
@@ -386,23 +418,149 @@ def check_leakage(splits: dict[str, pd.DataFrame], near_threshold: float = DEFAU
     report["checks"]["no_exact_text_overlap"] = {"passed": bool(text_ok), "details": details["exact_text_overlap"]}
 
     near_ok, near_details = True, {}
+    mats = _corpus_split_matrices(splits)
     for later, earlier in (("val", "train"), ("test", "train"), ("test", "val")):
         if later in splits and earlier in splits:
-            a = splits[later]["text"].map(normalize_for_dedupe).tolist()
-            b = splits[earlier]["text"].map(normalize_for_dedupe).tolist()
-            keep_a = [t for t in a if t]
-            m = max_cross_similarity(keep_a, [t for t in b if t])
-            n_hit = int((m >= near_threshold).sum())
+            XA, _ = mats.get(later, (None, []))
+            XB, _ = mats.get(earlier, (None, []))
+            if XA is None or XB is None or XA.shape[0] == 0 or XB.shape[0] == 0:
+                m = np.zeros(0)
+            else:
+                m = np.zeros(XA.shape[0])
+                for start in range(0, XA.shape[0], 500):
+                    S = XA[start:start + 500] @ XB.T
+                    m[start:start + 500] = S.max(axis=1).toarray().ravel()
+            n_hit = int((m >= near_threshold - NEAR_EPS).sum())
+            a_norm = [t for t in splits[later]["text"].map(normalize_for_dedupe).tolist() if t]
+            b_norm = [t for t in splits[earlier]["text"].map(normalize_for_dedupe).tolist() if t]
+            legacy = max_cross_similarity(a_norm, b_norm)
             near_details[f"{later}->{earlier}"] = {
                 "max_similarity": float(m.max()) if len(m) else 0.0,
                 "p99_similarity": float(np.quantile(m, 0.99)) if len(m) else 0.0,
                 "n_rows_at_or_above_threshold": n_hit,
+                # Diagnostic only, NOT gating: split-dependent TF-IDF (fit on these two splits alone).
+                "legacy_split_fit_rows_at_or_above": int((legacy >= near_threshold).sum()),
             }
             near_ok &= n_hit == 0
     report["checks"]["no_cross_split_near_duplicates"] = {"passed": bool(near_ok), "details": near_details}
     report["all_passed"] = bool(all(c["passed"] for c in report["checks"].values()))
     return report
 
+
+# --------------------------------------------------------------------------- near-duplicate resolution (NEW)
+class GroupTooLargeError(RuntimeError):
+    """Merging near-duplicate groups produced a group large enough to distort the split."""
+
+
+class ResolutionInconsistencyError(RuntimeError):
+    """Grouping and leakage detection disagree even though they share one similarity definition (a bug)."""
+
+
+def find_cross_split_near_pairs(splits: dict[str, pd.DataFrame], near_threshold: float = DEFAULT_NEAR_THRESHOLD,
+                                chunk: int = 500) -> list[tuple[int, int, float]]:
+    """Every (job_id_later, job_id_earlier, cosine) at/above threshold across the split pairs that check_leakage
+    compares, using the SAME corpus-fit similarity as check_leakage. Returns the pairs, not just per-row maxima."""
+    mats = _corpus_split_matrices(splits)
+    pairs: list[tuple[int, int, float]] = []
+    for later, earlier in (("val", "train"), ("test", "train"), ("test", "val")):
+        if later not in mats or earlier not in mats:
+            continue
+        XA, a_pos = mats[later]
+        XB, b_pos = mats[earlier]
+        if XA.shape[0] == 0 or XB.shape[0] == 0:
+            continue
+        a_ids, b_ids = splits[later][ID_COL].to_numpy(), splits[earlier][ID_COL].to_numpy()
+        for start in range(0, XA.shape[0], chunk):
+            S = (XA[start:start + chunk] @ XB.T).tocoo()
+            keep = S.data >= near_threshold - NEAR_EPS
+            for r, c, v in zip(S.row[keep], S.col[keep], S.data[keep]):
+                pairs.append((int(a_ids[a_pos[start + r]]), int(b_ids[b_pos[c]]), float(v)))
+    return pairs
+
+
+def merge_groups_by_pairs(df: pd.DataFrame, pairs: list[tuple[int, int, float]]) -> pd.Series:
+    """Union the groups of every pair's two job_ids. New group_id = smallest old group_id in the merged set
+    (old ids are smallest job_ids, so the id stays stable and equals the smallest job_id)."""
+    from scipy import sparse
+    from scipy.sparse.csgraph import connected_components
+
+    gid_of = df.set_index(ID_COL)[GROUP_COL]
+    uniq = pd.Index(df[GROUP_COL].unique())
+    pos = {g: i for i, g in enumerate(uniq)}
+    ea = [pos[gid_of[a]] for a, _, _ in pairs]
+    eb = [pos[gid_of[b]] for _, b, _ in pairs]
+    n = len(uniq)
+    graph = sparse.coo_matrix((np.ones(len(ea)), (ea, eb)), shape=(n, n))
+    comp = connected_components(graph, directed=False)[1]
+    new_id = pd.Series(uniq.to_numpy()).groupby(comp).transform("min").to_numpy()
+    return df[GROUP_COL].map(dict(zip(uniq, new_id)))
+
+
+def resolve_cross_split_near_duplicates(
+    df: pd.DataFrame,
+    fractions: tuple[float, float, float] = DEFAULT_FRACTIONS,
+    seed: int = SEED,
+    near_threshold: float = DEFAULT_NEAR_THRESHOLD,
+    max_group_fraction: float = 0.05,
+    grouping_margin: float = 0.0,
+) -> tuple[pd.DataFrame, dict]:
+    """Deterministic, single-pass replacement for the earlier iterative resolver.
+
+    Why the iterative one never converged: the old leakage similarity was fit on the two splits being compared, so a
+    pair's cosine moved with every re-split (0.899 in one split, 0.901 in the next). Here grouping and the check
+    share ONE corpus-fit definition, so the set of pairs >= threshold is a fixed graph independent of the split:
+      1. find ALL such pairs over the whole corpus (not only ones that currently cross splits),
+      2. merge their groups (transitively),
+      3. split ONCE, then
+      4. verify with the independent cross-split finder that no pair crosses; raise otherwise.
+    Threshold and final check_leakage gate are unchanged.
+
+    grouping_margin (default 0.0) optionally groups at near_threshold - margin: a STRICTER buffer so pairs just under
+    the threshold also stay together. It can only add merges; the gate threshold itself never moves."""
+    if not 0.0 <= grouping_margin < near_threshold:
+        raise ValueError("grouping_margin must be in [0, near_threshold)")
+    group_threshold = near_threshold - grouping_margin
+    df = df.copy()
+    norm = df["text"].map(normalize_for_dedupe).tolist()
+    pos = [i for i, t in enumerate(norm) if t]
+    ids = df[ID_COL].to_numpy()
+    all_pairs = [(int(ids[pos[a]]), int(ids[pos[b]]), v)
+                 for a, b, v in near_duplicate_pairs([norm[i] for i in pos], group_threshold)]
+
+    gid_of = df.set_index(ID_COL)[GROUP_COL]
+    merging = [(a, b, v) for a, b, v in all_pairs if gid_of[a] != gid_of[b]]
+    n_before = int(df[GROUP_COL].nunique())
+    if all_pairs:
+        df[GROUP_COL] = merge_groups_by_pairs(df, all_pairs)
+    sizes = df[GROUP_COL].value_counts()
+    if int(sizes.max()) > max_group_fraction * len(df):
+        raise GroupTooLargeError(
+            f"After merging near-duplicate pairs the largest group has {int(sizes.max())} rows "
+            f"(> {max_group_fraction:.0%} of {len(df)}). Review the grouping text representation; "
+            "do not exempt pairs or raise the threshold."
+        )
+
+    df[SPLIT_COL] = group_stratified_split(df, fractions=fractions, seed=seed)
+    parts = {name: df[df[SPLIT_COL] == name] for name in SPLIT_NAMES}
+    crossing = find_cross_split_near_pairs(parts, group_threshold)
+    if crossing:
+        raise ResolutionInconsistencyError(
+            f"{len(crossing)} pair(s) still cross splits after merging all pairs under one similarity definition; "
+            f"splits not saved. First few: {crossing[:5]}"
+        )
+    return df, {
+        "similarity_definition": "word 1-2gram sublinear TF-IDF fit once on all non-empty normalised texts",
+        "near_threshold": near_threshold,
+        "grouping_margin": grouping_margin,
+        "float_tolerance": NEAR_EPS,
+        "n_pairs_at_or_above_threshold": len(all_pairs),
+        "n_pairs_that_merged_groups": len(merging),
+        "merging_pairs_sample": [[a, b, round(v, 6)] for a, b, v in sorted(merging, key=lambda x: -x[2])[:50]],
+        "n_groups_before": n_before,
+        "n_groups_after": int(df[GROUP_COL].nunique()),
+        "largest_group_size": int(sizes.max()),
+        "cross_split_pairs_after_split": 0,
+    }
 
 # --------------------------------------------------------------------------- persistence
 def _ordered_columns(df: pd.DataFrame) -> list[str]:
@@ -454,13 +612,14 @@ def run_pipeline(
     fractions: tuple[float, float, float] = DEFAULT_FRACTIONS,
     seed: int = SEED,
     inspect_only: bool = False,
+    grouping_margin: float = 0.0,
 ) -> dict:
     raw_path = Path(raw_path)
     raw = load_raw(raw_path)
     schema = validate_schema(raw)
     df = add_model_text(raw)
     prof = profile(df)
-    group, dup_stats = assign_duplicate_groups(df, near_threshold=near_threshold)
+    group, dup_stats = assign_duplicate_groups(df, near_threshold=near_threshold - grouping_margin)
     df[GROUP_COL] = group
     result: dict = {
         "raw_file": str(raw_path),
@@ -472,10 +631,11 @@ def run_pipeline(
     if inspect_only:
         return result
 
-    
-    df[SPLIT_COL] = group_stratified_split(
-        df, fractions=fractions, seed=seed
+    # NEW: merge groups of any cross-split pair the leakage check would flag, then re-split (threshold unchanged).
+    df, resolution = resolve_cross_split_near_duplicates(
+        df, fractions=fractions, seed=seed, near_threshold=near_threshold, grouping_margin=grouping_margin
     )
+    result["near_duplicate_resolution"] = resolution
     parts = {name: df[df[SPLIT_COL] == name] for name in SPLIT_NAMES}
     leakage = check_leakage(parts, near_threshold=near_threshold)
 
@@ -496,6 +656,8 @@ def run_pipeline(
         "raw_file": raw_path.name,
         "raw_sha256": result["raw_sha256"],
         "splits": split_info,
+        "near_duplicate_resolution": resolution,
+        "pipeline_code_sha256": file_sha256(__file__),
         "leakage": {"all_passed": leakage["all_passed"], "checks": {k: v["passed"] for k, v in leakage["checks"].items()}},
         "versions": {
             "python": platform.python_version(),
