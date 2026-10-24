@@ -1,4 +1,4 @@
-:root{
+﻿:root{
   --bg-a:#e6f0fa; --bg-b:#f7f9fc; --card:#ffffff; --ink:#142033; --muted:#5b6b7f; --line:#dbe3ec;
   --accent:#0e7490; --tint:#eaf4f8; --brand-a:#0e7490; --brand-b:#4f46e5;
   --low:#2e7d4f; --low-bg:#e3f3ea; --mid:#9a6a00; --mid-bg:#fdf1d3; --high:#b3261e; --high-bg:#fbe4e2;
@@ -135,3 +135,9 @@ mark{background:var(--high-bg);color:var(--high);border-bottom:2px solid var(--h
 
 /* Softer highlight in chat bubbles */
 .bubble.user mark{background:#ffe58a;color:#3b2a00;border-bottom:0;border-radius:4px;padding:1px 3px}
+
+
+
+/* Highlighted source text in the report panel */
+.source{background:var(--tint);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:.93rem;line-height:2;max-height:220px;overflow-y:auto}
+.source mark{background:#ffe58a;color:#3b2a00;border:0;border-radius:4px;padding:1px 4px}

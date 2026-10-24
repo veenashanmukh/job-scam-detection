@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { analyzeJob, analyzeChat, followUp, SAMPLE_JOB, FOLLOW_UPS } from "./services/api.js";
 
 const LEVEL = { "Lower risk": "low", "Moderate risk": "mid", "Higher risk": "high" };
@@ -127,6 +127,8 @@ function ReportPanel({ report }) {
         <p className="muted">None detected.</p>
       )}
 
+      {report.source_text && (<><h3>Your text, with warning phrases marked</h3><div className="source"><Highlighted text={report.source_text} /></div></>)}
+
       {report.timeline && (<><h3>Risk timeline</h3><Timeline items={report.timeline} /></>)}
 
       {report.supporting_evidence.length > 0 && (
@@ -172,7 +174,7 @@ export default function App() {
     add({ role: "user", text });
     setBusy(true);
     try {
-      const r = await analyzeJob(text);
+      const r = { ...(await analyzeJob(text)), source_text: text };
       setReport(r);
       add({ role: "assistant", text: r.explanation, report: r });
     } catch {
@@ -270,7 +272,7 @@ export default function App() {
               <div key={i} className={`row ${m.role}`}>
                 {m.role === "assistant" && <span className="avatar"><Logo size={22} /></span>}
                 <div className={`bubble ${m.role} ${m.error ? "error" : ""}`}>
-                  <p>{m.role === "user" && m.text.length >= 120 ? <Highlighted text={m.text} /> : m.text}</p>
+                  <p>{m.text}</p>
                   {m.report && (
                     <p className="inline-risk">
                       <span className={`chip ${LEVEL[m.report.risk_category]}`}>{m.report.risk_category}</span>
@@ -319,5 +321,6 @@ export default function App() {
     </>
   );
 }
+
 
 
