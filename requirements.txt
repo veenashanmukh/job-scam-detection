@@ -6,3 +6,8 @@ scikit-learn>=1.4  # tested with 1.9.1
 scipy>=1.11
 pytest>=8          # dev
 nbformat>=5        # dev (notebook generation/validation)
+
+# Phase 2: chat-analysis API
+flask>=3.0
+flask-cors>=4.0
+python-dotenv>=1.0
