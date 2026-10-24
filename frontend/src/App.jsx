@@ -1,38 +1,93 @@
 import { useEffect, useRef, useState } from "react";
-import { analyzeJob, analyzeChat, followUp, SAMPLE_JOB, FOLLOW_UPS, USE_MOCK } from "./services/api.js";
+import { analyzeJob, analyzeChat, followUp, SAMPLE_JOB, FOLLOW_UPS } from "./services/api.js";
 
 const LEVEL = { "Lower risk": "low", "Moderate risk": "mid", "Higher risk": "high" };
 
-function RiskBar({ score, category }) {
-  const level = LEVEL[category];
+const CHECKS = [
+  "Upfront payment or registration fees",
+  "Unrealistic salary or no-interview offers",
+  "Requests for ID, bank, or password details",
+  "Urgent or pressuring language",
+  "Moving the chat to another app",
+  "Mismatched company and contact details",
+];
+
+const STEPS = [
+  ["Paste or upload", "Add a job posting, or an exported WhatsApp or Telegram chat as a .txt file."],
+  ["Warning signs are checked", "The text is compared with known warning signs and similar past cases."],
+  ["Review the evidence", "See the risk score, the evidence behind it, and what to verify next."],
+];
+
+// Phrases that get highlighted in pasted text. Later the backend can return the exact spans.
+const HL = /(refundable registration fee|registration fee|earn rs [\d,]+ per week|bank details|aadhaar|guaranteed placement|guaranteed|no interview|urgent|telegram|deposit|\bfee\b)/gi;
+
+function Logo({ size = 38 }) {
   return (
-    <div>
-      <div className="riskhead">
-        <span className={`chip ${level}`}>{category}</span>
-        <strong>{score} / 100</strong>
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <defs>
+        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#0e7490" />
+          <stop offset="1" stopColor="#4f46e5" />
+        </linearGradient>
+      </defs>
+      <path d="M16 2l11 4v8c0 7-4.6 12.4-11 15C9.6 26.4 5 21 5 14V6l11-4z" fill="url(#lg)" />
+      <circle cx="15" cy="14" r="5" fill="none" stroke="#fff" strokeWidth="2" />
+      <line x1="18.8" y1="17.8" x2="22" y2="21" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function Highlighted({ text }) {
+  return (
+    <>
+      {text.split(HL).map((part, i) =>
+        i % 2 ? <mark key={i} title="Possible warning sign">{part}</mark> : part
+      )}
+    </>
+  );
+}
+
+function Gauge({ score, category }) {
+  const r = 52, c = 2 * Math.PI * r, level = LEVEL[category];
+  return (
+    <div className="gauge">
+      <svg viewBox="0 0 120 120" role="img" aria-label={`Risk score ${score} out of 100`}>
+        <circle cx="60" cy="60" r={r} className="g-track" />
+        <circle cx="60" cy="60" r={r} className={`g-fill ${level}`}
+          strokeDasharray={`${(score / 100) * c} ${c}`} transform="rotate(-90 60 60)" />
+        <text x="60" y="62" textAnchor="middle" className="g-score">{score}</text>
+        <text x="60" y="80" textAnchor="middle" className="g-of">out of 100</text>
+      </svg>
+      <div>
+        <span className={`chip big ${level}`}>{category}</span>
+        <p className="hint">Provisional score. It is not a probability.</p>
       </div>
-      <div className="track">
-        <div className={`fill ${level}`} style={{ width: `${score}%` }} />
-      </div>
-      <p className="hint">Provisional score. It is not a probability.</p>
     </div>
   );
 }
 
 function Timeline({ items }) {
-  const w = 320, h = 100, pad = 14;
-  const step = items.length > 1 ? (w - pad * 2) / (items.length - 1) : 0;
-  const pts = items.map((m, i) => [pad + i * step, h - pad - (m.cumulative / 100) * (h - pad * 2)]);
+  const w = 360, h = 130, px = 14, py = 12;
+  const x = (i) => px + (items.length > 1 ? (i * (w - px * 2)) / (items.length - 1) : 0);
+  const y = (v) => h - py - (v / 100) * (h - py * 2);
+  const pts = items.map((m, i) => [x(i), y(m.cumulative)]);
+  const line = pts.map((p) => p.join(",")).join(" ");
+  const area = `${px},${y(0)} ${line} ${x(items.length - 1)},${y(0)}`;
   return (
     <div>
       <svg viewBox={`0 0 ${w} ${h}`} className="timeline" role="img" aria-label="Risk over the conversation">
-        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} className="axis" />
-        <polyline points={pts.map((p) => p.join(",")).join(" ")} className="line" fill="none" />
+        <rect x="0" y={y(100)} width={w} height={y(60) - y(100)} className="band high" />
+        <rect x="0" y={y(60)} width={w} height={y(30) - y(60)} className="band mid" />
+        <rect x="0" y={y(30)} width={w} height={y(0) - y(30)} className="band low" />
+        <polygon points={area} className="area" />
+        <polyline points={line} className="line" fill="none" />
         {pts.map((p, i) => (
           <circle key={i} cx={p[0]} cy={p[1]} r={items[i].sign ? 5 : 3} className={items[i].sign ? "dot flag" : "dot"}>
             <title>{`${items[i].time}: ${items[i].sign || "no warning sign"}`}</title>
           </circle>
         ))}
+        <text x={px} y={h - 1} className="tl-label">{items[0].time}</text>
+        <text x={w - px} y={h - 1} textAnchor="end" className="tl-label">{items[items.length - 1].time}</text>
       </svg>
       <ul className="flags">
         {items.filter((m) => m.sign).map((m, i) => (
@@ -50,21 +105,24 @@ function Timeline({ items }) {
 function ReportPanel({ report }) {
   if (!report) {
     return (
-      <aside className="panel empty">
-        <h2>Report</h2>
-        <p>Run an analysis to see the risk score, warning signs, evidence, and timeline here.</p>
+      <aside className="panel">
+        <h2>What gets checked</h2>
+        <ul className="checks">
+          {CHECKS.map((c) => <li key={c}>{c}</li>)}
+        </ul>
+        <p className="disclaimer">Results are warning signs, not proof that a company is fraudulent.</p>
       </aside>
     );
   }
   return (
     <aside className="panel">
       <h2>{report.type === "chat" ? "Conversation report" : "Job posting report"}</h2>
-      <RiskBar score={report.risk_score} category={report.risk_category} />
+      <Gauge score={report.risk_score} category={report.risk_category} />
       <p className="pred"><span>Classifier:</span> {report.classifier_prediction}</p>
 
       <h3>Warning signs</h3>
       {report.warning_signs.length ? (
-        <ul>{report.warning_signs.map((s) => <li key={s}>{s}</li>)}</ul>
+        <ul className="signs">{report.warning_signs.map((s) => <li key={s}>{s}</li>)}</ul>
       ) : (
         <p className="muted">None detected.</p>
       )}
@@ -77,9 +135,12 @@ function ReportPanel({ report }) {
           {report.supporting_evidence.map((e) => (
             <details key={e.id} className="evidence">
               <summary>
-                <span>{e.id}</span>
+                <span className="eid">{e.id}</span>
                 <span className={`chip small ${e.label === "Fraudulent" ? "high" : "low"}`}>{e.label}</span>
-                <span className="sim">sim {e.similarity}</span>
+                <span className="sim" title="Text similarity">
+                  <span className="simbar"><span style={{ width: `${e.similarity * 100}%` }} /></span>
+                  {e.similarity}
+                </span>
               </summary>
               <p>"{e.snippet}"</p>
               <p className="muted">Source: {e.source}</p>
@@ -105,6 +166,7 @@ export default function App() {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, busy]);
 
   const add = (m) => setMessages((prev) => [...prev, m]);
+  const reset = () => { setMessages([]); setReport(null); setInput(""); };
 
   async function runJob(text) {
     add({ role: "user", text });
@@ -119,27 +181,8 @@ export default function App() {
     setBusy(false);
   }
 
-  async function send() {
-    const text = input.trim();
-    if (!text || busy) return;
-    setInput("");
-    if (text.length < 120) {
-      add({ role: "user", text });
-      add({ role: "assistant", text: "That looks short. Please paste the full job posting, or upload an exported chat as a .txt file, so I can check it." });
-      return;
-    }
-    runJob(text);
-  }
-
-  async function upload(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || busy) return;
-    add({ role: "user", text: `Uploaded file: ${file.name}` });
-    if (!file.name.toLowerCase().endsWith(".txt")) {
-      add({ role: "assistant", text: "That file type is not supported yet. Please export the chat as plain text (.txt).", error: true });
-      return;
-    }
+  async function runChat(file, label) {
+    add({ role: "user", text: `Uploaded file: ${label}` });
     setBusy(true);
     try {
       const r = await analyzeChat(file);
@@ -151,77 +194,130 @@ export default function App() {
     setBusy(false);
   }
 
+  function send() {
+    const text = input.trim();
+    if (!text || busy) return;
+    setInput("");
+    if (text.length < 120) {
+      add({ role: "user", text });
+      add({ role: "assistant", text: "That looks short. Please paste the full job posting, or upload an exported chat as a .txt file, so I can check it." });
+      return;
+    }
+    runJob(text);
+  }
+
+  function upload(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || busy) return;
+    if (!file.name.toLowerCase().endsWith(".txt")) {
+      add({ role: "user", text: `Uploaded file: ${file.name}` });
+      add({ role: "assistant", text: "That file type is not supported yet. Please export the chat as plain text (.txt).", error: true });
+      return;
+    }
+    runChat(file, file.name);
+  }
+
   function ask(q) {
     if (busy || !report) return;
     add({ role: "user", text: q });
     add({ role: "assistant", text: followUp(q, report) });
   }
 
-  const lastAssistantWithReport = [...messages].reverse().find((m) => m.report);
+  const lastWithReport = [...messages].reverse().find((m) => m.report);
 
   return (
-    <div className="app">
+    <>
       <header className="top">
-        <div>
-          <h1>Job Scam Assistant</h1>
-          <p>Check a job posting or a recruiter chat for warning signs</p>
+        <div className="top-inner">
+          <div className="brand">
+            <Logo />
+            <div>
+              <h1>Job Scam Assistant</h1>
+              <p>Check a job posting or a recruiter chat for warning signs</p>
+            </div>
+          </div>
+          {messages.length > 0 && <button className="ghost" onClick={reset}>New analysis</button>}
         </div>
       </header>
 
+      <div className="app">
       <main className="layout">
         <section className="chat" aria-label="Chat">
           <div className="messages">
             {messages.length === 0 && (
               <div className="intro">
-                <h2>Paste a job posting or upload a chat</h2>
-                <p>I look for warning signs and show the evidence. I can say a posting is potentially fraudulent, but I cannot prove it.</p>
+                <Logo size={56} />
+                <h2>Is this job offer safe?</h2>
+                <p>Paste a job posting or upload a recruiter chat. I point out warning signs and show the evidence. I can say something is potentially fraudulent, but I cannot prove it.</p>
+                <div className="steps">
+                  {STEPS.map(([t, d], i) => (
+                    <div key={t} className="step">
+                      <span className="num">{i + 1}</span>
+                      <strong>{t}</strong>
+                      <span>{d}</span>
+                    </div>
+                  ))}
+                </div>
                 <div className="samples">
-                  <button onClick={() => setInput(SAMPLE_JOB)}>Use a sample job posting</button>
-                  <button onClick={() => { add({ role: "user", text: "Uploaded file: sample_chat.txt" }); setBusy(true); analyzeChat(null).then((r) => { setReport(r); add({ role: "assistant", text: r.explanation, report: r }); setBusy(false); }); }}>Use a sample chat</button>
+                  <button onClick={() => setInput(SAMPLE_JOB)}>Try a sample job posting</button>
+                  <button onClick={() => runChat(null, "sample_chat.txt")}>Try a sample chat</button>
                 </div>
               </div>
             )}
 
             {messages.map((m, i) => (
-              <div key={i} className={`bubble ${m.role} ${m.error ? "error" : ""}`}>
-                <p>{m.text}</p>
-                {m.report && (
-                  <p className="inline-risk">
-                    <span className={`chip ${LEVEL[m.report.risk_category]}`}>{m.report.risk_category}</span>
-                    <span>Score {m.report.risk_score}. Details are in the report panel.</span>
-                  </p>
-                )}
-                {m === lastAssistantWithReport && !busy && (
-                  <div className="followups">
-                    {FOLLOW_UPS[m.report.type].map((q) => (
-                      <button key={q} onClick={() => ask(q)}>{q}</button>
-                    ))}
-                  </div>
-                )}
+              <div key={i} className={`row ${m.role}`}>
+                {m.role === "assistant" && <span className="avatar"><Logo size={22} /></span>}
+                <div className={`bubble ${m.role} ${m.error ? "error" : ""}`}>
+                  <p>{m.role === "user" && m.text.length >= 120 ? <Highlighted text={m.text} /> : m.text}</p>
+                  {m.report && (
+                    <p className="inline-risk">
+                      <span className={`chip ${LEVEL[m.report.risk_category]}`}>{m.report.risk_category}</span>
+                      <span>Score {m.report.risk_score}. Details are in the report.</span>
+                    </p>
+                  )}
+                  {m === lastWithReport && !busy && (
+                    <div className="followups">
+                      {FOLLOW_UPS[m.report.type].map((q) => (
+                        <button key={q} onClick={() => ask(q)}>{q}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
 
-            {busy && <div className="bubble assistant typing">Analyzing<span>.</span><span>.</span><span>.</span></div>}
+            {busy && (
+              <div className="row assistant">
+                <span className="avatar"><Logo size={22} /></span>
+                <div className="bubble assistant typing">Analyzing<span>.</span><span>.</span><span>.</span></div>
+              </div>
+            )}
             <div ref={endRef} />
           </div>
 
           <div className="composer">
             <input ref={fileRef} type="file" accept=".txt,text/plain" hidden onChange={upload} />
-            <button className="ghost" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Upload chat file">Upload chat</button>
+            <button className="ghost" onClick={() => fileRef.current?.click()} disabled={busy}>Upload chat</button>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder="Paste a job posting here..."
               rows={2}
+              aria-label="Job posting text"
             />
             <button className="primary" onClick={send} disabled={busy || !input.trim()}>Analyze</button>
           </div>
+          <p className="hintline">Enter to send, Shift+Enter for a new line. Results are warning signs, not proof.</p>
         </section>
 
         <ReportPanel report={report} />
       </main>
-    </div>
+      </div>
+    </>
   );
 }
+
 
