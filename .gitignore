@@ -58,3 +58,10 @@ reports/conflict_groups.csv
 data/processed_*/
 
 reports/candidate/
+# Trained model artifacts - share separately
+backend/models_v2/*.joblib
+backend/models_v2/distilbert_job_scam/
+*.safetensors
+
+# Temporary validation output
+prepare_error.txt
