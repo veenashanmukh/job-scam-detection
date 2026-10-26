@@ -195,10 +195,13 @@ export async function analyzeJob(text) {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      throw new Error(data.error || `Analysis failed (${res.status})`);
+      throw new Error(
+        data.error || data.message || `Job analysis failed (${res.status})`
+      );
     }
 
     return { type: "job", ...data };
+
   }
 
   await delay(900);
@@ -218,10 +221,13 @@ export async function analyzeChat(file) {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      throw new Error(data.error || `Chat analysis failed (${res.status})`);
+      throw new Error(
+        data.error || data.message || `Chat analysis failed (${res.status})`
+      );
     }
 
     return { type: "chat", ...data };
+
   }
 
   await delay(1100);

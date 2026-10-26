@@ -1,41 +1,27 @@
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from backend.routes.chat_routes import chat_bp
-from backend.services.llm_analysis import analyze
+from backend.routes.job_routes import job_bp
 
 
 def create_app():
     app = Flask(__name__)
-    app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB
+    app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
+
     CORS(app)
 
+    # Conversation analysis remains on its existing route.
     app.register_blueprint(chat_bp)
+
+    # Job-posting analysis uses the existing DistilBERT classifier.
+    app.register_blueprint(job_bp)
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_request_too_large(error):
         return jsonify({"error": "Request payload is too large."}), 413
-
-    @app.post("/api/analyze-job")
-    def analyze_job_route():
-        data = request.get_json(silent=True)
-
-        if not isinstance(data, dict):
-            return jsonify({"error": "Send job-posting text as JSON."}), 400
-
-        text = data.get("text")
-
-        if not isinstance(text, str) or not text.strip():
-            return jsonify({"error": "Job-posting text cannot be empty."}), 400
-
-        try:
-            return jsonify(analyze(text)), 200
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
-        except RuntimeError as exc:
-            return jsonify({"error": str(exc)}), 503
 
     @app.get("/api/health")
     def health():
