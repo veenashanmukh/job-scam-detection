@@ -21,6 +21,7 @@ Every report has all of these fields. Lists are never `null`. Use an empty list 
 | `risk_score` | integer, 0 to 100 | Provisional weighted score. It is not a probability. |
 | `risk_category` | string | `"Lower risk"` (0 to 29), `"Moderate risk"` (30 to 59), or `"Higher risk"` (60 to 100). It must match the score. |
 | `classifier_prediction` | string | Short label, for example `"Potentially fraudulent"` or `"Likely legitimate"`. |
+| `classifier_details` | object, optional | Job reports only. Raw classifier output for evaluation and debugging: `model` (string), `fraud_probability` (0 to 1), `threshold` (0 to 1). Not shown to users as a verdict. |
 | `warning_signs` | list of strings | Detected signs, for example `"Upfront payment request"`. |
 | `supporting_evidence` | list of evidence objects | Retrieved records that support the result. Empty for chats. |
 | `explanation` | string | Plain-language explanation based on the evidence. |
@@ -60,6 +61,7 @@ Return a non-2xx status and a JSON body:
 | 400 | Empty input, missing file, or unsupported file type |
 | 413 | File too large |
 | 500 | Unexpected failure (do not include stack traces or private text) |
+| 503 | The classifier model is not installed or could not be loaded |
 
 ## Rules for every response
 
@@ -130,4 +132,5 @@ Return a non-2xx status and a JSON body:
 
 - Response shape for `/api/analyze-jobs-csv` (probably a list of reports with a row number).
 - Shape for `/api/graph` (nodes and links) and `/api/history`.
-- Whether the report should also expose the separate signals (classifier probability, retrieval scores, LLM verdict) for the evaluation experiments.
+- Retrieval scores and the LLM verdict are not exposed yet. `classifier_details` covers only the classifier. Add similar optional objects here before using them.
+- Until the weighted-indicator score exists, job reports use a provisional score: the DistilBERT fraud probability rescaled so the model threshold sits at 30.

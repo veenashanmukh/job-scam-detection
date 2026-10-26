@@ -11,3 +11,7 @@ nbformat>=5        # dev (notebook generation/validation)
 flask>=3.0
 flask-cors>=4.0
 python-dotenv>=1.0
+
+# DistilBERT API (the model was saved with transformers 5.16.1)
+torch
+transformers
