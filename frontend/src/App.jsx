@@ -181,8 +181,8 @@ export default function App() {
   text: r.analysis?.explanation || r.explanation || "Analysis completed. See the report for details.",
   report: r,
 });
-    } catch {
-      add({ role: "assistant", text: "Something went wrong while analyzing. Please try again.", error: true });
+    } catch (error) {
+      add({ role: "assistant", text: error instanceof Error ? error.message : "Something went wrong while analyzing. Please try again.", error: true });
     }
     setBusy(false);
   }
@@ -194,8 +194,8 @@ export default function App() {
       const r = await analyzeChat(file);
       setReport(r);
       add({ role: "assistant", text: r.explanation, report: r });
-    } catch {
-      add({ role: "assistant", text: "Something went wrong while reading the chat. Please try again.", error: true });
+    } catch (error) {
+      add({ role: "assistant", text: error instanceof Error ? error.message : "Something went wrong while reading the chat. Please try again.", error: true });
     }
     setBusy(false);
   }

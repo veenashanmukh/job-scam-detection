@@ -35,6 +35,11 @@ def _parse_start(line: str):
     return None
 
 
+_NON_CHAT_FOOTER = re.compile(
+    r"^this is a fictional sample conversation(?:\s|$)", re.I
+)
+
+
 def parse_chat_text(raw_text: str) -> list[ParsedMessage]:
     """Return timestamped messages; continuation lines belong to the prior message.
 
@@ -45,6 +50,11 @@ def parse_chat_text(raw_text: str) -> list[ParsedMessage]:
         raise TypeError("raw_text must be a string")
     messages: list[ParsedMessage] = []
     for line in raw_text.replace("\ufeff", "").splitlines():
+        # Demo/sample disclaimers are file-level notes, not part of the last
+        # timestamped message. Stop before attaching the disclaimer as a
+        # continuation line to the conversation.
+        if _NON_CHAT_FOOTER.match(line.strip()):
+            break
         start = _parse_start(line)
         if start:
             body = (start.get("body") or "").strip()
