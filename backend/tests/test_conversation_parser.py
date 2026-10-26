@@ -33,3 +33,14 @@ def test_telegram_desktop_style_timestamp():
     assert len(messages) == 1
     assert messages[0]["speaker"] == "Recruiter"
     assert messages[0]["text"] == "Pay a registration fee"
+
+
+def test_sample_file_disclaimer_is_not_appended_to_last_message():
+    raw = (
+        "10/24/26, 10:09 AM - Rahul: Please do not miss your chance.\n\n"
+        "This is a fictional sample conversation created for software testing. "
+        "Do not send money or personal information.\n"
+    )
+    messages = parse_chat_text(raw)
+    assert len(messages) == 1
+    assert messages[0]["text"] == "Please do not miss your chance."

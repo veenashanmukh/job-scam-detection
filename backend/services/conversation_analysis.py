@@ -4,12 +4,26 @@ from __future__ import annotations
 import re
 from .conversation_parser import ParsedMessage
 
+# Payment requests must be explicit. A currency amount alone is not a payment
+# demand: job postings commonly state salaries such as "Rs 45,000 per week".
+PAYMENT_REQUEST_RE = re.compile(
+    r"\b(?:pay|payment(?!\s+(?:screenshot|proof|receipt))|fee|deposit|registration charge|processing charge|"
+    r"security deposit|transfer|upi|send\s+(?:me\s+)?(?:rs\.?|₹|\$|money))\b",
+    re.I,
+)
+
 RULES: list[tuple[str, re.Pattern[str], int]] = [
-    ("Payment request", re.compile(r"\b(?:pay|payment|fee|deposit|registration charge|processing charge|security deposit|transfer|upi|send\s+(?:me\s+)?(?:rs\.?|₹|\$|money))\b|(?:₹|\brs\.?\s*)\s?\d[\d,]*", re.I), 35),
+    ("Payment request", PAYMENT_REQUEST_RE, 35),
     ("Sensitive information request", re.compile(r"\b(?:aadhaar|aadhar|pan card|bank details|account number|card number|cvv|otp|password|passport|government id|identity proof|send your id|upload your id)\b", re.I), 25),
-    ("Pressure tactic", re.compile(r"\b(?:within\s+\d+\s*(?:minutes?|hours?)|immediately|right now|last chance|limited seats?|act fast|today only|or you will lose|seat goes to someone|don't delay|do not delay)\b", re.I), 20),
+    ("Pressure tactic", re.compile(
+        r"\b(?:within\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\w+-\w+)\s*(?:minutes?|hours?)|"
+        r"immediately|right now|last chance|limited seats?|limited slots?|act fast|today only|"
+        r"or you will lose|seat goes to someone|give the job to someone else|"
+        r"offer expires soon|offer expires in|expires within|do not miss your chance|"
+        r"don't miss your chance|don't delay|do not delay|if you delay)\b", re.I
+    ), 20),
     ("Moves to another app", re.compile(r"\b(?:telegram|whatsapp|signal|私聊|move to (?:another|our) app|continue on)\b", re.I), 10),
-    ("Unrealistic job promise", re.compile(r"\b(?:guaranteed (?:job|placement|income)|no interview|without interview|earn\s+(?:₹|rs\.?\s*)?\d[\d,]*(?:\s*(?:per|\/))\s*(?:day|week|month)|work\s+from\s+home.{0,50}(?:easy money|guaranteed))\b", re.I), 15),
+    ("Unrealistic job promise", re.compile(r"\b(?:guaranteed (?:job|placement|income)|no interview|without interview|earn\s+(?:₹|rs\.?\s*)?\d[\d,]*(?:\s*(?:per|/))\s*(?:day|week|month)|work\s+from\s+home.{0,50}(?:easy money|guaranteed))\b", re.I), 15),
 ]
 
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
