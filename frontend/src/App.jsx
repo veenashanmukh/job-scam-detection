@@ -176,7 +176,11 @@ export default function App() {
     try {
       const r = { ...(await analyzeJob(text)), source_text: text };
       setReport(r);
-      add({ role: "assistant", text: r.explanation, report: r });
+    add({
+  role: "assistant",
+  text: r.analysis?.explanation || r.explanation || "Analysis completed. See the report for details.",
+  report: r,
+});
     } catch {
       add({ role: "assistant", text: "Something went wrong while analyzing. Please try again.", error: true });
     }

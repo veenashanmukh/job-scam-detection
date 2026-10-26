@@ -1,0 +1,34 @@
+[
+  {
+    "query": "A recruiter asks me to pay money before I can start a job.",
+    "relevant_source_ids": ["ftc_job_scams"]
+  },
+  {
+    "query": "An online task platform says I must deposit cryptocurrency to withdraw my earnings.",
+    "relevant_source_ids": ["ftc_task_scams_2025", "scamwatch_jobs_side_hustles_2024"]
+  },
+  {
+    "query": "I received an unexpected text offering easy online work with high pay.",
+    "relevant_source_ids": ["ftc_task_scams_2025", "ftc_text_job_offer_2026"]
+  },
+  {
+    "query": "How can I check whether a job offer from a company is legitimate?",
+    "relevant_source_ids": ["ftc_job_scams", "scamwatch_jobs_side_hustles_2024"]
+  },
+  {
+    "query": "A recruitment agency promises guaranteed employment if I pay a placement fee.",
+    "relevant_source_ids": ["ftc_job_scams"]
+  },
+  {
+    "query": "What should I check before accepting a job overseas?",
+    "relevant_source_ids": ["mea_overseas_recruitment"]
+  },
+  {
+    "query": "A job asks me to receive packages and ship them to another address.",
+    "relevant_source_ids": ["ftc_job_scams"]
+  },
+  {
+    "query": "An employer promises unrealistic earnings for simple online activities.",
+    "relevant_source_ids": ["ftc_task_scams_2025", "scamwatch_jobs_side_hustles_2024"]
+  }
+]
