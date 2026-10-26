@@ -1,0 +1,245 @@
+[
+  {
+    "test": "Clear warning signs",
+    "posting": "Remote online job. Earn high daily income by completing simple tasks. Deposit money before withdrawing your earnings.",
+    "expected_signs": [
+      "upfront_fee",
+      "unrealistic_earnings",
+      "task_scam"
+    ],
+    "actual_signs": [
+      "upfront_fee",
+      "unrealistic_earnings",
+      "task_scam"
+    ],
+    "passed_structure_check": true,
+    "structure_errors": [],
+    "unsupported_sign_review_flags": [],
+    "missing_expected_signs": [],
+    "unexpected_signs": [],
+    "result": {
+      "analysis": {
+        "assessment": "The posting shows several warning signs that raise concerns about its legitimacy.",
+        "explanation": "The job advert promises high daily earnings for simple online tasks and requires the applicant to deposit money before any withdrawal, which aligns with known fraud patterns such as upfront fees, unrealistic earnings, and task-based scams. These elements are supported by the retrieved guidance that identifies such practices as red flags.",
+        "warning_signs": [
+          "upfront_fee",
+          "unrealistic_earnings",
+          "task_scam"
+        ],
+        "recommended_actions": [
+          "Research the company or individual offering the job using independent sources (e.g., company website, reviews, Better Business Bureau).",
+          "Verify any contact information and confirm that the employer is a legitimate, verifiable business.",
+          "Avoid sending money or providing financial information until you have confirmed the job’s legitimacy.",
+          "If you have already sent money, contact your bank or payment provider immediately and consider filing a complaint with the FTC or local consumer protection agency.",
+          "Keep records of all communications and any requests for payment.",
+          "Seek advice from a trusted employment or legal professional before proceeding further."
+        ],
+        "limitations": [
+          "The posting provides no details about the employer, specific tasks, payment method, or verification steps, making it difficult to fully assess the offer’s legitimacy."
+        ]
+      },
+      "supporting_evidence": [
+        {
+          "id": "ftc_job_scams",
+          "title": "Job Scams",
+          "publisher": "Federal Trade Commission",
+          "url": "https://consumer.ftc.gov/articles/job-scams",
+          "excerpt": "Job scams can involve requests to pay for a job, work-from-home offers that promise easy money, fake checks, reshipping schemes, or paid placement services that overpromise results. Research the employer and be cautious when an offer requires money or financial transactions before you have verified the job.",
+          "warning_sign_tags": [
+            "upfront_fee",
+            "fake_job_offer",
+            "fake_check",
+            "money_transfer",
+            "unrealistic_earnings"
+          ],
+          "similarity": 0.41349148750305176
+        },
+        {
+          "id": "ftc_task_scams_2025",
+          "title": "How to spot and avoid task scams",
+          "publisher": "Federal Trade Commission",
+          "url": "https://consumer.ftc.gov/consumer-alerts/2025/08/how-spot-avoid-task-scams",
+          "excerpt": "Task scams may promise earnings for simple online activities such as rating or liking content. The displayed balance or small early payout may be used to build trust, followed by a demand to deposit money—sometimes cryptocurrency—to unlock tasks or withdraw supposed earnings. Do not pay money to get paid.",
+          "warning_sign_tags": [
+            "task_scam",
+            "upfront_fee",
+            "crypto_scam",
+            "unrealistic_earnings",
+            "money_transfer"
+          ],
+          "similarity": 0.3992235064506531
+        },
+        {
+          "id": "scamwatch_jobs_side_hustles_2024",
+          "title": "Scam alert: Jobs and ‘side hustle’ scams",
+          "publisher": "Scamwatch, Australian Competition and Consumer Commission",
+          "url": "https://www.scamwatch.gov.au/about-us/news-and-alerts/scam-alert-jobs-and-side-hustle-scams",
+          "excerpt": "Job and side-hustle scams can advertise easy earnings and then ask people to pay upfront, deposit cryptocurrency, or act under pressure. Treat promised returns and requests to pay in order to receive earnings as warning signs, and independently verify the business and opportunity.",
+          "warning_sign_tags": [
+            "upfront_fee",
+            "crypto_scam",
+            "unrealistic_earnings",
+            "pressure_tactics",
+            "task_scam"
+          ],
+          "similarity": 0.39735740423202515
+        }
+      ],
+      "model": "openai/gpt-oss-20b"
+    }
+  },
+  {
+    "test": "Vague job offer",
+    "posting": "We are hiring remote assistants. Flexible hours and competitive pay. Contact us for more information.",
+    "expected_signs": [],
+    "actual_signs": [],
+    "passed_structure_check": true,
+    "structure_errors": [],
+    "unsupported_sign_review_flags": [],
+    "missing_expected_signs": [],
+    "unexpected_signs": [],
+    "result": {
+      "analysis": {
+        "assessment": "The posting is very vague and provides no details about the role, compensation, or contact method, making it difficult to assess legitimacy. While it does not contain obvious red flags, the lack of information warrants caution.",
+        "explanation": "The posting only states that remote assistants are being hired with flexible hours and competitive pay, and invites contact for more information. No mention of fees, payment, or specific employer details is present, so no warning signs can be confirmed from the text itself.",
+        "warning_signs": [],
+        "recommended_actions": [
+          "Research the company or recruiter independently using reputable sources.",
+          "Ask for a detailed job description, compensation breakdown, and official contact information before proceeding.",
+          "Verify any claims of competitive pay against industry standards for similar roles.",
+          "Consider using a secure communication channel and avoid sharing sensitive personal information until you confirm legitimacy.",
+          "If the recruiter requests any payment or personal documents, treat it as a potential red flag."
+        ],
+        "limitations": [
+          "The posting provides minimal information, so it is impossible to determine whether the offer is legitimate or fraudulent.",
+          "No details about the employer, job responsibilities, or compensation structure are given, limiting the ability to assess risk."
+        ]
+      },
+      "supporting_evidence": [
+        {
+          "id": "mea_fake_overseas_jobs_advisory_2024",
+          "title": "Advisory on overcharging by agents for overseas recruitment, offering fake overseas jobs and illegal recruitment",
+          "publisher": "Ministry of External Affairs, Government of India",
+          "url": "https://meacms.mea.gov.in/Images/attach/05-List-2024.pdf",
+          "excerpt": "The advisory warns that unregistered recruitment agents may cheat job seekers with fake overseas job offers and excessive charges. Such agents may advertise or contact applicants through social media, WhatsApp, text messages, or other channels, while providing few verifiable details. Verify the recruiting agent and the foreign employer through official channels before paying fees, handing over documents, or travelling for employment.",
+          "warning_sign_tags": [
+            "overseas_recruitment_fraud",
+            "fake_job_offer",
+            "upfront_fee",
+            "recruiter_impersonation",
+            "off_platform_messaging"
+          ],
+          "similarity": 0.31983280181884766
+        },
+        {
+          "id": "ftc_job_scams",
+          "title": "Job Scams",
+          "publisher": "Federal Trade Commission",
+          "url": "https://consumer.ftc.gov/articles/job-scams",
+          "excerpt": "Job scams can involve requests to pay for a job, work-from-home offers that promise easy money, fake checks, reshipping schemes, or paid placement services that overpromise results. Research the employer and be cautious when an offer requires money or financial transactions before you have verified the job.",
+          "warning_sign_tags": [
+            "upfront_fee",
+            "fake_job_offer",
+            "fake_check",
+            "money_transfer",
+            "unrealistic_earnings"
+          ],
+          "similarity": 0.30887091159820557
+        },
+        {
+          "id": "scamwatch_job_recruitment_scams_2026",
+          "title": "Scam alert: Job recruitment scams",
+          "publisher": "Scamwatch, Australian Competition and Consumer Commission",
+          "url": "https://www.scamwatch.gov.au/about-us/news-and-alerts/scam-alert-job-recruitment-scams",
+          "excerpt": "Recruitment scams may involve people impersonating recruiters or employers, pressure to act quickly, and offers that lead to requests for payment or other suspicious steps. Some task or side-hustle scams use messaging platforms and require victims to top up an account. Verify the role and recruiter through independently obtained contact details.",
+          "warning_sign_tags": [
+            "recruiter_impersonation",
+            "pressure_tactics",
+            "upfront_fee",
+            "task_scam",
+            "off_platform_messaging"
+          ],
+          "similarity": 0.2841169834136963
+        }
+      ],
+      "model": "openai/gpt-oss-20b"
+    }
+  },
+  {
+    "test": "Ordinary job description",
+    "posting": "We are hiring a software developer. Responsibilities include writing Python code, reviewing pull requests, and fixing bugs. Applicants should have two years of Python experience.",
+    "expected_signs": [],
+    "actual_signs": [],
+    "passed_structure_check": true,
+    "structure_errors": [],
+    "unsupported_sign_review_flags": [],
+    "missing_expected_signs": [],
+    "unexpected_signs": [],
+    "result": {
+      "analysis": {
+        "assessment": "The posting provides minimal information and does not contain any of the warning signs identified in the guidance. However, the lack of details about the employer, location, compensation, and contact method means the risk cannot be fully assessed.",
+        "explanation": "The job description only lists responsibilities and a requirement for two years of Python experience. No mention of fees, recruitment agents, or other suspicious elements. Therefore, no warning signs are supported by the posting itself.",
+        "warning_signs": [],
+        "recommended_actions": [
+          "Verify the company's legitimacy by searching for an official website and contact information.",
+          "Ask for details about the team, project, and compensation before proceeding.",
+          "Confirm the recruiter’s identity and contact details through independent sources.",
+          "Check for reviews or references from current or former employees."
+        ],
+        "limitations": [
+          "The posting does not include company name, location, salary, or contact details.",
+          "No information about the recruitment process or recruiter identity.",
+          "Absence of any red flags in the posting does not guarantee the offer is legitimate."
+        ]
+      },
+      "supporting_evidence": [
+        {
+          "id": "mea_fake_overseas_jobs_advisory_2024",
+          "title": "Advisory on overcharging by agents for overseas recruitment, offering fake overseas jobs and illegal recruitment",
+          "publisher": "Ministry of External Affairs, Government of India",
+          "url": "https://meacms.mea.gov.in/Images/attach/05-List-2024.pdf",
+          "excerpt": "The advisory warns that unregistered recruitment agents may cheat job seekers with fake overseas job offers and excessive charges. Such agents may advertise or contact applicants through social media, WhatsApp, text messages, or other channels, while providing few verifiable details. Verify the recruiting agent and the foreign employer through official channels before paying fees, handing over documents, or travelling for employment.",
+          "warning_sign_tags": [
+            "overseas_recruitment_fraud",
+            "fake_job_offer",
+            "upfront_fee",
+            "recruiter_impersonation",
+            "off_platform_messaging"
+          ],
+          "similarity": 0.20016080141067505
+        },
+        {
+          "id": "scamwatch_job_recruitment_scams_2026",
+          "title": "Scam alert: Job recruitment scams",
+          "publisher": "Scamwatch, Australian Competition and Consumer Commission",
+          "url": "https://www.scamwatch.gov.au/about-us/news-and-alerts/scam-alert-job-recruitment-scams",
+          "excerpt": "Recruitment scams may involve people impersonating recruiters or employers, pressure to act quickly, and offers that lead to requests for payment or other suspicious steps. Some task or side-hustle scams use messaging platforms and require victims to top up an account. Verify the role and recruiter through independently obtained contact details.",
+          "warning_sign_tags": [
+            "recruiter_impersonation",
+            "pressure_tactics",
+            "upfront_fee",
+            "task_scam",
+            "off_platform_messaging"
+          ],
+          "similarity": 0.18787789344787598
+        },
+        {
+          "id": "scamwatch_jobs_side_hustles_2024",
+          "title": "Scam alert: Jobs and ‘side hustle’ scams",
+          "publisher": "Scamwatch, Australian Competition and Consumer Commission",
+          "url": "https://www.scamwatch.gov.au/about-us/news-and-alerts/scam-alert-jobs-and-side-hustle-scams",
+          "excerpt": "Job and side-hustle scams can advertise easy earnings and then ask people to pay upfront, deposit cryptocurrency, or act under pressure. Treat promised returns and requests to pay in order to receive earnings as warning signs, and independently verify the business and opportunity.",
+          "warning_sign_tags": [
+            "upfront_fee",
+            "crypto_scam",
+            "unrealistic_earnings",
+            "pressure_tactics",
+            "task_scam"
+          ],
+          "similarity": 0.1562943458557129
+        }
+      ],
+      "model": "openai/gpt-oss-20b"
+    }
+  }
+]
