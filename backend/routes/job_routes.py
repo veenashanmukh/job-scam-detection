@@ -1,4 +1,5 @@
-"""Flask blueprint for single job-posting analysis with the DistilBERT classifier."""
+
+"""Flask blueprint for single job-posting analysis with DistilBERT."""
 from __future__ import annotations
 
 import logging
@@ -11,6 +12,7 @@ from backend.services.job_analysis import build_job_report
 logger = logging.getLogger(__name__)
 
 job_bp = Blueprint("job_routes", __name__)
+
 MAX_TEXT_CHARS = 20_000
 
 _classifier = None
@@ -20,44 +22,88 @@ _lock = threading.Lock()
 def get_classifier():
     """Load the DistilBERT service once, on first use.
 
-    The import is inside the function so the chat API and the unit tests do not need torch.
+    The import is inside the function so chat API routes and unit tests
+    do not need to load PyTorch unnecessarily.
     """
     global _classifier
+
     with _lock:
         if _classifier is None:
-            from backend.services.distilbert_service import DistilBERTJobScamService
+            from backend.services.distilbert_service import (
+                DistilBERTJobScamService,
+            )
 
             _classifier = DistilBERTJobScamService()
+
         return _classifier
 
 
 @job_bp.post("/api/analyze-job")
 def analyze_job_route():
-    """Accept JSON {"text": "<job posting>"} and return a report."""
+    """Accept JSON {"text": "<job posting>"} and return an analysis report."""
     payload = request.get_json(silent=True)
-    text = payload.get("text") if isinstance(payload, dict) else None
-    if not isinstance(text, str) or not text.strip():
-        return jsonify({"error": "Please provide the job posting text."}), 400
-    if len(text) > MAX_TEXT_CHARS:
-        return jsonify({"error": f"The posting is too long. Please keep it under {MAX_TEXT_CHARS:,} characters."}), 413
 
+    text = payload.get("text") if isinstance(payload, dict) else None
+
+    # Validate the submitted job posting.
+    if not isinstance(text, str) or not text.strip():
+        return jsonify({
+            "error": "Please provide the job posting text."
+        }), 400
+
+    if len(text) > MAX_TEXT_CHARS:
+        return jsonify({
+            "error": (
+                f"The posting is too long. "
+                f"Please keep it under {MAX_TEXT_CHARS:,} characters."
+            )
+        }), 413
+
+    # Load the classifier.
     try:
         classifier = get_classifier()
+
     except FileNotFoundError:
         logger.error("DistilBERT model files were not found.")
-        return jsonify({"error": "The classifier model is not installed on this server."}), 503
+
+        return jsonify({
+            "error": "The classifier model is not installed on this server."
+        }), 503
+
     except Exception:
         logger.exception("Could not load the DistilBERT classifier.")
-        return jsonify({"error": "The classifier could not be loaded."}), 503
 
+        return jsonify({
+            "error": "The classifier could not be loaded."
+        }), 503
+
+    # Predict whether the posting may be fraudulent.
     try:
         prediction = classifier.predict(text)
-    except ValueError:
-        return jsonify({"error": "Please provide the job posting text."}), 400
-    except Exception:
-        # Log the failure but never the posting text.
-        logger.exception("DistilBERT prediction failed.")
-        return jsonify({"error": "Analysis failed. Please try again."}), 500
 
-    # Do not store the posting or include it in logs.
-    return jsonify(build_job_report(prediction)), 200
+    except ValueError:
+        return jsonify({
+            "error": "Please provide the job posting text."
+        }), 400
+
+    except Exception:
+        # Never include the submitted job text in error logs.
+        logger.exception("DistilBERT prediction failed.")
+
+        return jsonify({
+            "error": "Analysis failed. Please try again."
+        }), 500
+
+    # Build the report using both the classifier prediction and original text.
+    # The report builder uses the text to detect configured warning phrases.
+    try:
+        report = build_job_report(prediction, text)
+
+    except Exception:
+        logger.exception("Could not build the job analysis report.")
+
+        return jsonify({
+            "error": "Could not generate the analysis report."
+        }), 500
+
+    return jsonify(report), 200

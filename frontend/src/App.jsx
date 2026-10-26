@@ -1,5 +1,25 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { analyzeJob, analyzeChat, followUp, SAMPLE_JOB, FOLLOW_UPS } from "./services/api.js";
+function Logo() {
+  return (
+    <div
+      style={{
+        width: "36px",
+        height: "36px",
+        borderRadius: "10px",
+        background: "#19c37d",
+        color: "#07130e",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: "bold",
+        fontSize: "20px",
+      }}
+    >
+      J
+    </div>
+  );
+}
 
 const LEVEL = { "Lower risk": "low", "Moderate risk": "mid", "Higher risk": "high" };
 
@@ -18,30 +38,38 @@ const STEPS = [
   ["Review the evidence", "See the risk score, the evidence behind it, and what to verify next."],
 ];
 
-// Phrases that get highlighted in pasted text. Later the backend can return the exact spans.
-const HL = /(refundable registration fee|registration fee|earn rs [\d,]+ per week|bank details|aadhaar|guaranteed placement|guaranteed|no interview|urgent|telegram|deposit|\bfee\b)/gi;
+// Highlight phrases returned by the backend; use common warning phrases as a fallback.
+const HL =
+  /(refundable registration fee|registration fee|earn rs [\d,]+ per week|bank details|aadhaar|guaranteed placement|guaranteed employment|guaranteed|no interview|urgently|urgent|telegram|deposit|pay immediately|pay today|personal details|\bfee\b)/gi;
 
-function Logo({ size = 38 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <defs>
-        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#0e7490" />
-          <stop offset="1" stopColor="#4f46e5" />
-        </linearGradient>
-      </defs>
-      <path d="M16 2l11 4v8c0 7-4.6 12.4-11 15C9.6 26.4 5 21 5 14V6l11-4z" fill="url(#lg)" />
-      <circle cx="15" cy="14" r="5" fill="none" stroke="#fff" strokeWidth="2" />
-      <line x1="18.8" y1="17.8" x2="22" y2="21" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+function Highlighted({ text, warningSigns = [] }) {
+  if (typeof text !== "string" || !text) return null;
+
+  const phrases = warningSigns
+    .map((sign) =>
+      typeof sign === "string" ? sign : sign?.matched_text
+    )
+    .filter((phrase) => typeof phrase === "string" && phrase.trim())
+    .sort((a, b) => b.length - a.length);
+
+  const escapedPhrases = [...new Set(phrases)].map((phrase) =>
+    phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   );
-}
 
-function Highlighted({ text }) {
+  const matcher = escapedPhrases.length
+    ? new RegExp(`(${escapedPhrases.join("|")})`, "gi")
+    : HL;
+
   return (
     <>
-      {text.split(HL).map((part, i) =>
-        i % 2 ? <mark key={i} title="Possible warning sign">{part}</mark> : part
+      {text.split(matcher).map((part, index) =>
+        index % 2 === 1 ? (
+          <mark key={index} title="Possible warning sign">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
       )}
     </>
   );
@@ -121,13 +149,24 @@ function ReportPanel({ report }) {
       <p className="pred"><span>Classifier:</span> {report.classifier_prediction}</p>
 
       <h3>Warning signs</h3>
-      {report.warning_signs.length ? (
-        <ul className="signs">{report.warning_signs.map((s) => <li key={s}>{s}</li>)}</ul>
+      {Array.isArray(report.warning_signs) && report.warning_signs.length ? (
+        <ul className="signs">
+          {report.warning_signs.map((sign, index) => {
+            const label = typeof sign === "string" ? sign : (sign?.label || "Warning sign");
+            const matchedText = typeof sign === "object" && sign ? sign.matched_text : "";
+            return (
+              <li key={`${label}-${matchedText || index}-${index}`}>
+                <strong>{label}</strong>
+                {matchedText && <> — "{matchedText}"</>}
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <p className="muted">None detected.</p>
       )}
 
-      {report.source_text && (<><h3>Your text, with warning phrases marked</h3><div className="source"><Highlighted text={report.source_text} /></div></>)}
+      {report.source_text && (<><h3>Your text, with warning phrases marked</h3><div className="source"><Highlighted text={report.source_text} warningSigns={report.warning_signs} /></div></>)}
 
       {report.timeline && (<><h3>Risk timeline</h3><Timeline items={report.timeline} /></>)}
 
