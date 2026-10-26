@@ -9,6 +9,18 @@ export const SAMPLE_JOB =
   "Pay a refundable registration fee of Rs 2,500 to confirm your seat. " +
   "Send your Aadhaar and bank details on Telegram to start today. Guaranteed placement.";
 
+export const SAMPLE_CHAT_TEXT = [
+  "[24/10/26, 9:02 AM] Recruiter: Hello, we found your profile and have a role for you.",
+  "[24/10/26, 9:03 AM] You: Thanks, can you share the details?",
+  "[24/10/26, 9:05 AM] Recruiter: Salary is Rs 60,000 per month, no experience needed.",
+  "[24/10/26, 9:06 AM] You: Is there an interview?",
+  "[24/10/26, 9:08 AM] Recruiter: No interview. Move to Telegram for onboarding.",
+  "[24/10/26, 9:15 AM] Recruiter: Pay Rs 3,000 registration fee to confirm your seat.",
+  "[24/10/26, 9:16 AM] You: Why do I need to pay?",
+  "[24/10/26, 9:18 AM] Recruiter: Pay in the next 30 minutes or the seat goes to someone else.",
+  "[24/10/26, 9:20 AM] Recruiter: Also send your bank details and an Aadhaar photo.",
+].join("\n");
+
 export const FOLLOW_UPS = {
   job: [
     "Which parts look suspicious?",
@@ -209,6 +221,19 @@ export async function analyzeJob(text) {
 }
 
 export async function analyzeChat(file) {
+  if (file === null) {
+    const sampleFile = new File(
+      [SAMPLE_CHAT_TEXT],
+      "sample_chat.txt",
+      { type: "text/plain" }
+    );
+    return analyzeChat(sampleFile);
+  }
+
+  if (!file) {
+    throw new Error("Please select a chat export to analyze.");
+  }
+
   if (!USE_MOCK) {
     const form = new FormData();
     form.append("file", file);
@@ -227,7 +252,6 @@ export async function analyzeChat(file) {
     }
 
     return { type: "chat", ...data };
-
   }
 
   await delay(1100);
