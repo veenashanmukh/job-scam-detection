@@ -15,3 +15,8 @@ python-dotenv>=1.0
 # DistilBERT API (the model was saved with transformers 5.16.1)
 torch
 transformers
+
+# Phase 3: RAG integration
+groq
+chromadb
+sentence-transformers
