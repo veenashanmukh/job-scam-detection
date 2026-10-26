@@ -1,6 +1,6 @@
 // Set USE_MOCK to false once the Flask endpoints are ready.
 // The response shape follows the JSON format the team agreed on.
-export const USE_MOCK = true;
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -152,3 +152,4 @@ export function followUp(question, report) {
         "Do not share bank or ID details before you have confirmed the offer.";
   }
 }
+
