@@ -4,11 +4,42 @@ from __future__ import annotations
 import re
 from .conversation_parser import ParsedMessage
 
+
+def is_payment_request(text: str) -> bool:
+    """Detect requests or instructions to make a payment, not questions about payment."""
+    text = text.strip().lower()
+
+    # Questions, refusals, and warnings about payment are not payment requests.
+    non_request_patterns = [
+        r"^\s*why\s+(?:do|should|must|would|am)\s+i\s+(?:need\s+to\s+)?pay\b",
+        r"^\s*(?:do|should|must|can|could|would)\s+i\s+(?:need\s+to\s+)?pay\b",
+        r"\bwhy\s+(?:are|am)\s+(?:you|i)\s+(?:asking|being asked)\s+to\s+pay\b",
+        r"\b(?:i\s+)?(?:won't|will not|cannot|can't|refuse to)\s+pay\b",
+        r"\b(?:send|share|forward|upload)\s+(?:me\s+)?(?:the\s+)?payment\s+(?:screenshot|proof|receipt)\b",
+    ]
+
+    if any(re.search(pattern, text) for pattern in non_request_patterns):
+        return False
+
+    # Look for an actual payment instruction or demand.
+    payment_request_patterns = [
+        r"\bpay\s+(?:(?:rs\.?|₹|\$)\s*)?[\d,]+",
+        r"\bpay\s+(?:in\s+the\s+next\s+)?\d+\s*(?:minutes?|hours?|days?)\b",
+        r"\bpay\s+(?:the\s+)?(?:fee|amount|charges)\b",
+        r"\b(?:send|transfer|deposit)\s+(?:the\s+)?(?:money|payment|fee|amount)\b",
+        r"\bregistration\s+fee\b",
+        r"\bprocessing\s+fee\b",
+        r"\bpayment\s+(?:is\s+)?required\b",
+    ]
+
+    return any(re.search(pattern, text) for pattern in payment_request_patterns)
+
+
 # Payment requests must be explicit. A currency amount alone is not a payment
 # demand: job postings commonly state salaries such as "Rs 45,000 per week".
 PAYMENT_REQUEST_RE = re.compile(
-    r"\b(?:pay|payment(?!\s+(?:screenshot|proof|receipt))|fee|deposit|registration charge|processing charge|"
-    r"security deposit|transfer|upi|send\s+(?:me\s+)?(?:rs\.?|₹|\$|money))\b",
+    r"\b(?:pay|payment|fee|deposit|registration charge|processing charge|"
+    r"security deposit|transfer|upi)\b",
     re.I,
 )
 
@@ -47,7 +78,12 @@ def analyze_messages(messages: list[ParsedMessage]) -> dict:
         weight = 0
         if not message.get("is_system", False):
             for label, pattern, points in RULES:
-                if pattern.search(text):
+                if label == "Payment request":
+                    is_match = is_payment_request(text)
+                else:
+                    is_match = bool(pattern.search(text))
+
+                if is_match:
                     matched.append(label)
                     weight += points
                     if label not in all_signs:
@@ -74,7 +110,8 @@ def analyze_messages(messages: list[ParsedMessage]) -> dict:
             "The score is a rule-based indicator, not a probability or proof of fraud."
         ),
         "uncertainty_notes": [
-            "This first version uses rules only; it is not a trained conversation classifier.",
+            "Conversation risk scoring currently uses predefined rules; the DistilBERT classifier is used for job-posting analysis, not conversation classification.",
             "No external employer verification or reference-record retrieval was performed.",
         ],
+
     }
