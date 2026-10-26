@@ -131,25 +131,52 @@ function ReportPanel({ report }) {
 
       {report.timeline && (<><h3>Risk timeline</h3><Timeline items={report.timeline} /></>)}
 
-      {report.supporting_evidence.length > 0 && (
-        <>
-          <h3>Supporting evidence</h3>
-          {report.supporting_evidence.map((e) => (
-            <details key={e.id} className="evidence">
-              <summary>
-                <span className="eid">{e.id}</span>
-                <span className={`chip small ${e.label === "Fraudulent" ? "high" : "low"}`}>{e.label}</span>
-                <span className="sim" title="Text similarity">
-                  <span className="simbar"><span style={{ width: `${e.similarity * 100}%` }} /></span>
-                  {e.similarity}
-                </span>
-              </summary>
-              <p>"{e.snippet}"</p>
-              <p className="muted">Source: {e.source}</p>
-            </details>
-          ))}
-        </>
-      )}
+     {report.supporting_evidence?.length > 0 && (
+  <>
+    <h3>Supporting evidence</h3>
+
+    {report.supporting_evidence.map((e) => (
+      <details key={e.id} className="evidence">
+        <summary>
+          <span className="eid">{e.title || e.id}</span>
+
+          <span className="sim" title="Text similarity">
+            <span className="simbar">
+              <span
+                style={{
+                  width: `${Math.max(0, Math.min(1, Number(e.similarity) || 0)) * 100}%`,
+                }}
+              />
+            </span>
+            {typeof e.similarity === "number"
+              ? e.similarity.toFixed(2)
+              : "N/A"}
+          </span>
+        </summary>
+
+        <p>{e.excerpt || "No evidence excerpt is available."}</p>
+
+        <p className="muted">
+          Source: {e.publisher || "Unknown publisher"}
+        </p>
+
+        {e.warning_sign_tags?.length > 0 && (
+          <p className="muted">
+            Related warning signs: {e.warning_sign_tags.join(", ")}
+          </p>
+        )}
+
+        {e.url && (
+          <p>
+            <a href={e.url} target="_blank" rel="noopener noreferrer">
+              Read original source ↗
+            </a>
+          </p>
+        )}
+      </details>
+    ))}
+  </>
+)}
 
       <h3>Uncertainty notes</h3>
       <ul className="notes">{report.uncertainty_notes.map((n) => <li key={n}>{n}</li>)}</ul>
