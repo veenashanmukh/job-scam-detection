@@ -170,23 +170,49 @@ function ReportPanel({ report }) {
 
       {report.timeline && (<><h3>Risk timeline</h3><Timeline items={report.timeline} /></>)}
 
-      {report.supporting_evidence.length > 0 && (
+            {report.supporting_evidence?.length > 0 && (
         <>
           <h3>Supporting evidence</h3>
-          {report.supporting_evidence.map((e) => (
-            <details key={e.id} className="evidence">
-              <summary>
-                <span className="eid">{e.id}</span>
-                <span className={`chip small ${e.label === "Fraudulent" ? "high" : "low"}`}>{e.label}</span>
-                <span className="sim" title="Text similarity">
-                  <span className="simbar"><span style={{ width: `${e.similarity * 100}%` }} /></span>
-                  {e.similarity}
-                </span>
-              </summary>
-              <p>"{e.snippet}"</p>
-              <p className="muted">Source: {e.source}</p>
-            </details>
-          ))}
+          {report.supporting_evidence.map((e, index) => {
+            const sourceId = e.id || e.source_id || `evidence-${index}`;
+            const title = e.title || "Untitled guidance";
+            const publisher = e.publisher || "Publisher unavailable";
+            const excerpt = e.excerpt || e.snippet || "No excerpt is available for this source.";
+            const similarity = Number(e.similarity ?? e.relevance_score ?? 0);
+            const url = e.url;
+
+            return (
+              <details key={sourceId} className="evidence">
+                <summary>
+                  <span className="eid">{title}</span>
+                  <span className="sim" title="Text similarity">
+                    <span className="simbar">
+                      <span
+                        style={{
+                          width: `${Math.max(0, Math.min(1, similarity)) * 100}%`,
+                        }}
+                      />
+                    </span>
+                    {similarity.toFixed(2)}
+                  </span>
+                </summary>
+
+                <p>{excerpt}</p>
+
+                <p className="muted">
+                  Source: {publisher}
+                </p>
+
+                {url && (
+                  <p>
+                    <a href={url} target="_blank" rel="noopener noreferrer">
+                      Read original guidance
+                    </a>
+                  </p>
+                )}
+              </details>
+            );
+          })}
         </>
       )}
 

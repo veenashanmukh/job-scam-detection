@@ -8,6 +8,7 @@ import threading
 from flask import Blueprint, jsonify, request
 
 from backend.services.job_analysis import build_job_report
+from backend.services.semantic_retrieval import retrieve_semantic
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ def analyze_job_route():
 
     # Build the report using both the classifier prediction and original text.
     # The report builder uses the text to detect configured warning phrases.
+       # Build the initial report from the classifier prediction and job text.
     try:
         report = build_job_report(prediction, text)
 
@@ -105,5 +107,19 @@ def analyze_job_route():
         return jsonify({
             "error": "Could not generate the analysis report."
         }), 500
+
+    # Retrieve relevant trusted guidance for the submitted job posting.
+    try:
+        evidence = retrieve_semantic(text, top_k=3)
+        report["supporting_evidence"] = evidence
+
+    except Exception:
+        # Keep classification available even if evidence retrieval fails.
+        logger.exception("Semantic evidence retrieval failed.")
+        report["supporting_evidence"] = []
+        report["evidence_retrieval_status"] = "unavailable"
+
+    else:
+        report["evidence_retrieval_status"] = "success"
 
     return jsonify(report), 200
