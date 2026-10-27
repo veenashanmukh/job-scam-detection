@@ -433,13 +433,6 @@ function ReportPanel({ report }) {
           No additional uncertainty notes were returned by the analysis.
         </p>
       )}
-
-      <p className="muted">
-        The risk score is a heuristic indicator, not a calibrated probability
-        of fraud. A low score does not guarantee that a job offer is safe.
-        Verify the employer and application channel independently before
-        sharing sensitive information or paying fees.
-      </p>
     </aside>
   );
 }
