@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from flask import Blueprint, jsonify, request
 
 from backend.services.job_analysis import build_job_report
+import re
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
@@ -37,25 +38,65 @@ def get_classifier():
         return _classifier
 
 
-def combine_warning_signs(rule_signs: list, llm_signs: list) -> list:
-    """Combine rule-based and LLM warning signs while removing exact duplicates."""
-    combined = []
-    seen = set()
+def normalize_warning_category(value: str) -> str:
+    """Normalize equivalent rule-based labels and LLM warning identifiers."""
+    normalized = str(value).strip().casefold()
+    normalized = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
 
-    for sign in rule_signs + llm_signs:
+    aliases = {
+        "upfront_payment": "upfront_payment",
+        "upfront_fee": "upfront_payment",
+        "registration_fee": "upfront_payment",
+        "pressure_tactic": "pressure_tactic",
+        "pressure": "pressure_tactic",
+        "requests_personal_information": "sensitive_information",
+        "request_for_sensitive_info": "sensitive_information",
+        "sensitive_information": "sensitive_information",
+        "off_platform_messaging": "off_platform_messaging",
+        "unrealistic_earnings": "unrealistic_earnings",
+        "no_interview": "no_interview",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def combine_warning_signs(rule_signs: list, llm_signs: list) -> list:
+    """Combine warnings, preserving rule-based evidence and removing semantic duplicates."""
+    combined = []
+    seen_categories = set()
+
+    # Process rule-based findings first so matched text is preserved.
+    for sign in rule_signs:
         if isinstance(sign, dict):
             label = str(sign.get("label", "")).strip()
-            matched_text = str(sign.get("matched_text", "")).strip()
-            key = ("rule", label.casefold(), matched_text.casefold())
-        else:
-            key = ("llm", str(sign).strip().casefold())
+            category = normalize_warning_category(label)
+            key = category or repr(sign)
 
-        if key not in seen:
+            if key not in seen_categories:
+                combined.append(sign)
+                seen_categories.add(key)
+        else:
+            category = normalize_warning_category(sign)
+            key = category or repr(sign)
+
+            if key not in seen_categories:
+                combined.append(sign)
+                seen_categories.add(key)
+
+    # Add LLM findings only when their category is not already represented.
+    for sign in llm_signs:
+        if isinstance(sign, dict):
+            label = str(sign.get("label", sign.get("category", ""))).strip()
+        else:
+            label = str(sign).strip()
+
+        category = normalize_warning_category(label)
+        key = category or repr(sign)
+
+        if key not in seen_categories:
             combined.append(sign)
-            seen.add(key)
+            seen_categories.add(key)
 
     return combined
-
 
 def add_llm_analysis(report: dict, text: str) -> dict:
     """Add optional evidence-grounded LLM analysis without changing classifier results."""
