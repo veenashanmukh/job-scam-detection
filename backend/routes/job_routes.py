@@ -1,3 +1,4 @@
+
 """Flask blueprint for job-posting analysis using DistilBERT and optional LLM + RAG."""
 from __future__ import annotations
 
@@ -5,8 +6,8 @@ import logging
 import os
 import threading
 from pathlib import Path
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 from flask import Blueprint, jsonify, request
 
 from backend.services.job_analysis import build_job_report
@@ -36,6 +37,25 @@ def get_classifier():
         return _classifier
 
 
+def combine_warning_signs(rule_signs: list, llm_signs: list) -> list:
+    """Combine rule-based and LLM warning signs while removing exact duplicates."""
+    combined = []
+    seen = set()
+
+    for sign in rule_signs + llm_signs:
+        if isinstance(sign, dict):
+            label = str(sign.get("label", "")).strip()
+            matched_text = str(sign.get("matched_text", "")).strip()
+            key = ("rule", label.casefold(), matched_text.casefold())
+        else:
+            key = ("llm", str(sign).strip().casefold())
+
+        if key not in seen:
+            combined.append(sign)
+            seen.add(key)
+
+    return combined
+
 
 def add_llm_analysis(report: dict, text: str) -> dict:
     """Add optional evidence-grounded LLM analysis without changing classifier results."""
@@ -62,7 +82,13 @@ def add_llm_analysis(report: dict, text: str) -> dict:
         analysis = result["analysis"]
 
         report["llm_analysis"] = analysis
-        report["warning_signs"] = analysis["warning_signs"]
+
+        # Keep rule-based findings and add the LLM's findings.
+        report["warning_signs"] = combine_warning_signs(
+            report.get("warning_signs", []),
+            analysis.get("warning_signs", []),
+        )
+
         report["supporting_evidence"] = result["supporting_evidence"]
         report["explanation"] = analysis["explanation"]
         report["recommended_actions"] = analysis["recommended_actions"]
@@ -132,7 +158,10 @@ def analyze_job_route():
         logger.exception("DistilBERT prediction failed.")
         return jsonify({"error": "Analysis failed. Please try again."}), 500
 
-    report = build_job_report(prediction)
+    # Pass the posting text so rule-based warning detection can run.
+    report = build_job_report(prediction, text)
+
+    # Add optional RAG + LLM analysis without discarding rule-based findings.
     report = add_llm_analysis(report, text)
 
     return jsonify(report), 200

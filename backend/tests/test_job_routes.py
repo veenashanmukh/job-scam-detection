@@ -148,7 +148,14 @@ def test_llm_success_adds_analysis_and_evidence(make_client, monkeypatch):
     body = response.get_json()
     assert body["llm_analysis_status"] == "success"
     assert body["llm_model"] == "test-model"
-    assert body["warning_signs"] == ["upfront_fee"]
+    assert "upfront_fee" in body["warning_signs"]
+
+    assert any(
+        isinstance(sign, dict)
+        and sign["label"] == "Upfront payment"
+        and sign["matched_text"] == "registration fee"
+        for sign in body["warning_signs"]
+    )
     assert len(body["supporting_evidence"]) == 1
     assert body["explanation"] == fake_result["analysis"]["explanation"]
     assert body["classifier_prediction"] == "Potentially fraudulent"

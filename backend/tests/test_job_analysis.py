@@ -61,3 +61,32 @@ def test_unflagged_report_is_lower_risk_and_uses_careful_wording():
     assert report["risk_category"] == "Lower risk"
     assert "guarantee" in report["explanation"]
     assert "definitely" not in report["explanation"].lower()
+
+
+def test_no_application_fee_is_not_flagged():
+    from backend.services.job_analysis import detect_warning_signs
+
+    text = (
+        "Applicants can submit their resume through the careers portal. "
+        "No application fee is required."
+    )
+
+    findings = detect_warning_signs(text)
+
+    assert not any(
+        finding["label"] == "Upfront payment"
+        for finding in findings
+    )
+
+
+def test_explicit_application_fee_is_flagged():
+    from backend.services.job_analysis import detect_warning_signs
+
+    findings = detect_warning_signs(
+        "Applicants must pay an application fee before starting employment."
+    )
+
+    assert any(
+        finding["label"] == "Upfront payment"
+        for finding in findings
+    )
