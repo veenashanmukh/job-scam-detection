@@ -36,11 +36,23 @@ def get_classifier():
         return _classifier
 
 
+
 def add_llm_analysis(report: dict, text: str) -> dict:
-    """Add evidence-grounded LLM analysis without changing classifier results."""
-    if os.getenv("ENABLE_LLM_ANALYSIS", "false").strip().lower() not in {
-        "1", "true", "yes", "on"
-    }:
+    """Add optional evidence-grounded LLM analysis without changing classifier results."""
+    enabled = os.getenv(
+        "ENABLE_LLM_ANALYSIS", "false"
+    ).strip().lower() in {"1", "true", "yes", "on"}
+
+    if not enabled:
+        report["llm_analysis_status"] = "disabled"
+        report["uncertainty_notes"] = [
+            note for note in report["uncertainty_notes"]
+            if "not connected for job postings yet" not in note.lower()
+        ]
+        report["uncertainty_notes"].append(
+            "Additional LLM analysis and retrieved supporting evidence "
+            "were not included because the feature is disabled."
+        )
         return report
 
     try:
@@ -49,37 +61,31 @@ def add_llm_analysis(report: dict, text: str) -> dict:
         result = analyze(text)
         analysis = result["analysis"]
 
-        # Preserve the original DistilBERT score and prediction.
         report["llm_analysis"] = analysis
-        report["warning_signs"] = analysis.get("warning_signs", [])
-        report["supporting_evidence"] = result.get("supporting_evidence", [])
-        report["explanation"] = analysis.get("explanation", report["explanation"])
+        report["warning_signs"] = analysis["warning_signs"]
+        report["supporting_evidence"] = result["supporting_evidence"]
+        report["explanation"] = analysis["explanation"]
+        report["recommended_actions"] = analysis["recommended_actions"]
+        report["llm_model"] = result["model"]
 
-        # Remove the note saying RAG is not connected now that it succeeded.
         report["uncertainty_notes"] = [
-            note
-            for note in report["uncertainty_notes"]
+            note for note in report["uncertainty_notes"]
             if "not connected for job postings yet" not in note.lower()
         ]
 
-        # Preserve existing limitations and add the LLM's limitations.
-        for limitation in analysis.get("limitations", []):
+        for limitation in analysis["limitations"]:
             if limitation not in report["uncertainty_notes"]:
                 report["uncertainty_notes"].append(limitation)
 
-        report["recommended_actions"] = analysis.get("recommended_actions", [])
-        report["llm_model"] = result.get("model")
-
     except Exception:
-        # Keep the classifier report available if LLM or retrieval fails.
         logger.warning(
             "LLM job analysis was unavailable; returning classifier-only report.",
             exc_info=True,
         )
         report["llm_analysis_status"] = "unavailable"
         report["uncertainty_notes"].append(
-            "Additional LLM analysis or evidence retrieval was unavailable. "
-            "The displayed classifier result is provided without that additional analysis."
+            "Additional LLM analysis and retrieved supporting evidence "
+            "were unavailable. The classifier result is shown independently."
         )
     else:
         report["llm_analysis_status"] = "success"

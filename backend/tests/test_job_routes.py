@@ -88,3 +88,94 @@ def test_prediction_failure_gives_500_without_leaking_text(make_client):
     response = post(make_client(FakeClassifier(error=RuntimeError(secret))), {"text": secret})
     assert response.status_code == 500
     assert secret not in response.get_data(as_text=True)
+
+
+def test_llm_disabled_returns_classifier_report(make_client, monkeypatch):
+    monkeypatch.setenv("ENABLE_LLM_ANALYSIS", "false")
+
+    response = post(
+        make_client(FakeClassifier(0.95)),
+        {"text": "Pay a registration fee to start."},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["classifier_prediction"] == "Potentially fraudulent"
+    assert body["llm_analysis_status"] == "disabled"
+    assert any(
+        "feature is disabled" in note.lower()
+        for note in body["uncertainty_notes"]
+    )
+
+
+def test_llm_success_adds_analysis_and_evidence(make_client, monkeypatch):
+    monkeypatch.setenv("ENABLE_LLM_ANALYSIS", "true")
+
+    fake_result = {
+        "model": "test-model",
+        "analysis": {
+            "assessment": "High risk",
+            "explanation": "The posting requests an upfront fee.",
+            "warning_signs": ["upfront_fee"],
+            "recommended_actions": ["Verify the employer independently."],
+            "limitations": ["The posting alone cannot prove fraud."],
+        },
+        "supporting_evidence": [
+            {
+                "source_id": "test-source",
+                "title": "Job scam guidance",
+                "url": "https://example.org/job-scams",
+                "excerpt": "Be cautious of requests for upfront payments.",
+            }
+        ],
+    }
+
+    def fake_analyze(text):
+        assert "registration fee" in text
+        return fake_result
+
+    monkeypatch.setattr(
+        "backend.services.llm_analysis.analyze",
+        fake_analyze,
+    )
+
+    response = post(
+        make_client(FakeClassifier(0.95)),
+        {"text": "Pay a registration fee to start."},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["llm_analysis_status"] == "success"
+    assert body["llm_model"] == "test-model"
+    assert body["warning_signs"] == ["upfront_fee"]
+    assert len(body["supporting_evidence"]) == 1
+    assert body["explanation"] == fake_result["analysis"]["explanation"]
+    assert body["classifier_prediction"] == "Potentially fraudulent"
+    assert "The posting alone cannot prove fraud." in body["uncertainty_notes"]
+
+
+def test_llm_failure_preserves_classifier_report(make_client, monkeypatch):
+    monkeypatch.setenv("ENABLE_LLM_ANALYSIS", "true")
+
+    def fake_analyze(text):
+        raise RuntimeError("Simulated LLM failure")
+
+    monkeypatch.setattr(
+        "backend.services.llm_analysis.analyze",
+        fake_analyze,
+    )
+
+    response = post(
+        make_client(FakeClassifier(0.95)),
+        {"text": "Pay a registration fee to start."},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["classifier_prediction"] == "Potentially fraudulent"
+    assert body["llm_analysis_status"] == "unavailable"
+    assert any(
+        "were unavailable" in note.lower()
+        for note in body["uncertainty_notes"]
+    )
