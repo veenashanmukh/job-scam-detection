@@ -180,8 +180,10 @@ def _run_verify(args):
 def test_verify_script_passes_fresh_output_and_detects_tampering_and_staleness(fixture_csv, tmp_path):
     out = tmp_path / "cand"
     ds.run_pipeline(fixture_csv, out)
-    ok = _run_verify(["--dir", str(out), "--raw", str(fixture_csv), "--max-age-minutes", "60"])
+    # Synthetic fixture, so the full row-level checks (including test rows) are safe to run here.
+    ok = _run_verify(["--dir", str(out), "--raw", str(fixture_csv), "--max-age-minutes", "60", "--include-test"])
     assert ok.returncode == 0, ok.stdout + ok.stderr
+    assert "[SKIP]" not in ok.stdout
 
     # stale: manifest claims different code
     m = json.loads((out / "split_manifest.json").read_text())

@@ -21,3 +21,9 @@ def test_real_model_returns_valid_output_and_ranks_scam_higher():
         assert 0.0 <= result["fraud_probability"] <= 1.0
         assert result["prediction"] in (0, 1)
     assert scam["fraud_probability"] > normal["fraud_probability"]
+
+
+def test_real_model_logodds_agree_with_probability():
+    service = distilbert_service.DistilBERTJobScamService()
+    scam, normal = service.predict(SCAM), service.predict(NORMAL)
+    assert scam["fraud_logodds"] > normal["fraud_logodds"]
