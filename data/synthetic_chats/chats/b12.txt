@@ -1,0 +1,4 @@
+12/10/2026, 10:15 - Recruiter: The next round is a small take-home task, about two hours.
+12/10/2026, 10:17 - You: Is it paid?
+12/10/2026, 10:19 - Recruiter: It is unpaid but we give detailed feedback.
+12/10/2026, 10:21 - You: Fine, please send it over.

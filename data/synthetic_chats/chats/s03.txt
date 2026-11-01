@@ -1,0 +1,4 @@
+12/10/2026, 10:15 - Recruiter: Congratulations, you are selected as a remote office assistant.
+12/10/2026, 10:17 - Recruiter: We will mail you a check of $2,400 to buy a laptop and software from our vendor.
+12/10/2026, 10:19 - You: Do I buy it myself?
+12/10/2026, 10:21 - Recruiter: Deposit the check, keep $400 as salary and transfer the rest to our vendor today.

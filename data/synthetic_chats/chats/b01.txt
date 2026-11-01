@@ -1,0 +1,4 @@
+12/10/2026, 10:15 - Recruiter: Hi, thank you for applying for the Software Engineer role at Northbridge Systems.
+12/10/2026, 10:17 - Recruiter: Are you available for a 45 minute interview on Tuesday at 11:00?
+12/10/2026, 10:19 - You: Yes, Tuesday works for me.
+12/10/2026, 10:21 - Recruiter: Great, I will send a calendar invite with the video link.

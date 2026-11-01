@@ -1,0 +1,5 @@
+12/10/2026, 10:15 - Recruiter: We would like to extend an offer for the Data Analyst position, base salary of 14 LPA.
+12/10/2026, 10:17 - You: Thank you! Can I get the offer letter by email?
+12/10/2026, 10:19 - Recruiter: Sure, it will come from our HR domain tomorrow morning.
+12/10/2026, 10:21 - You: I would like a few days to review it.
+12/10/2026, 10:23 - Recruiter: Of course, take until Friday.
