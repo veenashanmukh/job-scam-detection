@@ -55,10 +55,13 @@ class DistilBERTJobScamService:
 
         with torch.inference_mode():
             outputs = self.model(**inputs)
+            logits = outputs.logits[0]
             probabilities = torch.softmax(outputs.logits, dim=-1)[0]
 
         fraud_probability = float(probabilities[1].item())
         legitimate_probability = float(probabilities[0].item())
+        # Unrounded log-odds of fraud; softmax over two classes gives sigmoid(logit1 - logit0).
+        fraud_logodds = float((logits[1] - logits[0]).item())
 
         prediction = int(fraud_probability >= self.threshold)
 
@@ -68,6 +71,7 @@ class DistilBERTJobScamService:
             "label": "fraudulent" if prediction == 1 else "legitimate",
             "fraud_probability": round(fraud_probability, 6),
             "legitimate_probability": round(legitimate_probability, 6),
+            "fraud_logodds": fraud_logodds,
             "threshold": self.threshold,
             "device": str(self.device),
         }

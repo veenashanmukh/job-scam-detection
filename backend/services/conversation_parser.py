@@ -78,3 +78,28 @@ def parse_chat_text(raw_text: str) -> list[ParsedMessage]:
             if not messages[-1]["is_system"]:
                 messages[-1]["text"] += "\n" + line.strip()
     return messages
+
+
+_PLAIN_SPEAKER_LINE = re.compile(r"^\s*(?P<speaker>[A-Za-z][\w .'’-]{0,29}):\s*(?P<text>\S.*)$")
+_NOT_SPEAKERS = {"http", "https", "ftp", "mailto"}
+
+
+def parse_untimestamped_conversation(raw_text: str) -> list[ParsedMessage]:
+    """
+    Messages from a pasted conversation that has no timestamps ("Recruiter: ...", "You: ...").
+
+    Only used when the strict parser finds nothing and the caller opts in (the web app does this for pasted
+    conversations). The strict parser is unchanged and never guesses; here each line that starts with a short
+    "Name:" label is a message with an empty time, and other non-empty lines continue the previous message.
+    """
+    if not isinstance(raw_text, str):
+        raise TypeError("raw_text must be a string")
+    messages: list[ParsedMessage] = []
+    for line in raw_text.replace("﻿", "").splitlines():
+        match = _PLAIN_SPEAKER_LINE.match(line)
+        speaker = match.group("speaker").strip() if match else ""
+        if match and speaker.lower() not in _NOT_SPEAKERS and len(speaker.split()) <= 3:
+            messages.append({"time": "", "speaker": speaker, "text": match.group("text").strip(), "is_system": False})
+        elif messages and line.strip():
+            messages[-1]["text"] += "\n" + line.strip()
+    return messages

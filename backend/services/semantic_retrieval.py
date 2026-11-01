@@ -22,12 +22,12 @@ _client = None
 _collection = None
 
 
-def _get_model() -> SentenceTransformer:
-    """Load the embedding model once per process."""
+def _get_model(local_files_only: bool = False) -> SentenceTransformer:
+    """Load the embedding model once per process; local_files_only never touches the network."""
     global _model
 
     if _model is None:
-        _model = SentenceTransformer(MODEL_NAME)
+        _model = SentenceTransformer(MODEL_NAME, local_files_only=local_files_only)
 
     return _model
 
@@ -40,7 +40,8 @@ def _get_collection():
         CHROMA_PATH.mkdir(parents=True, exist_ok=True)
 
         _client = chromadb.PersistentClient(
-            path=str(CHROMA_PATH)
+            path=str(CHROMA_PATH),
+            settings=chromadb.config.Settings(anonymized_telemetry=False),
         )
 
         _collection = _client.get_or_create_collection(
@@ -109,6 +110,7 @@ def retrieve_semantic(
     query: str,
     *,
     top_k: int = 3,
+    local_files_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Retrieve relevant guidance.
 
@@ -126,7 +128,7 @@ def retrieve_semantic(
     if count == 0:
         return []
 
-    query_embedding = _get_model().encode(
+    query_embedding = _get_model(local_files_only).encode(
         [query.strip()],
         normalize_embeddings=True,
     ).tolist()
