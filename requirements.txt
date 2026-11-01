@@ -20,3 +20,6 @@ transformers
 groq
 chromadb
 sentence-transformers
+
+# Entity graph (regex extraction, no spaCy)
+networkx>=3.0      # tested with 3.7
