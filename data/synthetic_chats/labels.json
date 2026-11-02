@@ -1,0 +1,258 @@
+[
+ {
+  "id": "s01",
+  "file": "chats/s01.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "registration_fee",
+  "you": "You"
+ },
+ {
+  "id": "s02",
+  "file": "chats/s02.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "task_scam",
+  "you": "You"
+ },
+ {
+  "id": "s03",
+  "file": "chats/s03.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "fake_cheque",
+  "you": "You"
+ },
+ {
+  "id": "s04",
+  "file": "chats/s04.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "overseas_visa",
+  "you": "You"
+ },
+ {
+  "id": "s05",
+  "file": "chats/s05.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "telegram_move",
+  "you": "You"
+ },
+ {
+  "id": "s06",
+  "file": "chats/s06.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "training_fee",
+  "you": "You"
+ },
+ {
+  "id": "s07",
+  "file": "chats/s07.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "gift_card",
+  "you": "You"
+ },
+ {
+  "id": "s08",
+  "file": "chats/s08.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "bank_details_ssn",
+  "you": "You"
+ },
+ {
+  "id": "s09",
+  "file": "chats/s09.txt",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "refundable_deposit",
+  "you": "You"
+ },
+ {
+  "id": "s10",
+  "file": "chats/s10.txt",
+  "label": "scam",
+  "difficulty": "medium",
+  "type": "impersonation",
+  "you": "You"
+ },
+ {
+  "id": "s11",
+  "file": "chats/s11.txt",
+  "label": "scam",
+  "difficulty": "medium",
+  "type": "crypto_task",
+  "you": "You"
+ },
+ {
+  "id": "s12",
+  "file": "chats/s12.txt",
+  "label": "scam",
+  "difficulty": "medium",
+  "type": "equipment_fee",
+  "you": "You"
+ },
+ {
+  "id": "s13",
+  "file": "chats/s13.txt",
+  "label": "scam",
+  "difficulty": "hard",
+  "type": "no_keywords_advance",
+  "you": "You"
+ },
+ {
+  "id": "s14",
+  "file": "chats/s14.txt",
+  "label": "scam",
+  "difficulty": "hard",
+  "type": "subtle_fee",
+  "you": "You"
+ },
+ {
+  "id": "s15",
+  "file": "chats/s15.txt",
+  "label": "scam",
+  "difficulty": "hard",
+  "type": "personal_data_only",
+  "you": "You"
+ },
+ {
+  "id": "s16",
+  "file": "chats/s16.txt",
+  "label": "scam",
+  "difficulty": "hard",
+  "type": "long_con",
+  "you": "You"
+ },
+ {
+  "id": "b01",
+  "file": "chats/b01.txt",
+  "label": "benign",
+  "difficulty": "easy",
+  "type": "interview_schedule",
+  "you": "You"
+ },
+ {
+  "id": "b02",
+  "file": "chats/b02.txt",
+  "label": "benign",
+  "difficulty": "easy",
+  "type": "offer_discussion",
+  "you": "You"
+ },
+ {
+  "id": "b03",
+  "file": "chats/b03.txt",
+  "label": "benign",
+  "difficulty": "easy",
+  "type": "document_request",
+  "you": "You"
+ },
+ {
+  "id": "b04",
+  "file": "chats/b04.txt",
+  "label": "benign",
+  "difficulty": "easy",
+  "type": "salary_negotiation",
+  "you": "You"
+ },
+ {
+  "id": "b05",
+  "file": "chats/b05.txt",
+  "label": "benign",
+  "difficulty": "easy",
+  "type": "joining_logistics",
+  "you": "You"
+ },
+ {
+  "id": "b06",
+  "file": "chats/b06.txt",
+  "label": "benign",
+  "difficulty": "easy",
+  "type": "friend_scam_talk",
+  "you": "You"
+ },
+ {
+  "id": "b07",
+  "file": "chats/b07.txt",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "platform_move_legit",
+  "you": "You"
+ },
+ {
+  "id": "b08",
+  "file": "chats/b08.txt",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "urgent_deadline",
+  "you": "You"
+ },
+ {
+  "id": "b09",
+  "file": "chats/b09.txt",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "background_check",
+  "you": "You"
+ },
+ {
+  "id": "b10",
+  "file": "chats/b10.txt",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "relocation",
+  "you": "You"
+ },
+ {
+  "id": "b11",
+  "file": "chats/b11.txt",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "bank_after_offer",
+  "you": "You"
+ },
+ {
+  "id": "b12",
+  "file": "chats/b12.txt",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "test_task",
+  "you": "You"
+ },
+ {
+  "id": "b13",
+  "file": "chats/b13.txt",
+  "label": "benign",
+  "difficulty": "hard",
+  "type": "benign_with_keywords",
+  "you": "You"
+ },
+ {
+  "id": "b14",
+  "file": "chats/b14.txt",
+  "label": "benign",
+  "difficulty": "hard",
+  "type": "telegram_mention_only",
+  "you": "You"
+ },
+ {
+  "id": "b15",
+  "file": "chats/b15.txt",
+  "label": "benign",
+  "difficulty": "hard",
+  "type": "sensitive_but_legit",
+  "you": "You"
+ },
+ {
+  "id": "b16",
+  "file": "chats/b16.txt",
+  "label": "benign",
+  "difficulty": "hard",
+  "type": "pressure_internal",
+  "you": "You"
+ }
+]

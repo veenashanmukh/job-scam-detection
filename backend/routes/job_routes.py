@@ -1,17 +1,19 @@
 
-"""Flask blueprint for job-posting analysis using DistilBERT and optional LLM + RAG."""
+"""Flask blueprint for job-posting analysis: DistilBERT, evidence retrieval and a grounded LLM explanation."""
 from __future__ import annotations
 
+import json
 import logging
-import os
 import threading
 from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Blueprint, jsonify, request
 
-from backend.services.job_analysis import build_job_report
-import re
+from backend.services import llm_explainer
+from backend.services.dataset import TEXT_FIELDS, build_text, clean_field
+from backend.services.evidence import build_evidence
+from backend.services.job_analysis import build_job_report, insufficient_report
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
@@ -20,9 +22,20 @@ logger = logging.getLogger(__name__)
 
 job_bp = Blueprint("job_routes", __name__)
 MAX_TEXT_CHARS = 20_000
+MIN_POSTING_CHARS = 30  # same minimum the frontend applies to a pasted posting
+BODY_FIELDS = ("description", "requirements", "benefits")
+
+# Decided by the classifier and rules; nothing after build_job_report may change them.
+FIXED_REPORT_KEYS = (
+    "verdict", "verdict_reason", "risk_score", "risk_category",
+    "display_risk_score", "classifier_risk_score", "classifier_prediction",
+)
 
 _classifier = None
 _lock = threading.Lock()
+_evidence_resources = None
+_evidence_lock = threading.Lock()
+_breaker = llm_explainer.CircuitBreaker()
 
 
 def get_classifier():
@@ -38,133 +51,170 @@ def get_classifier():
         return _classifier
 
 
-def normalize_warning_category(value: str) -> str:
-    """Normalize equivalent rule-based labels and LLM warning identifiers."""
-    normalized = str(value).strip().casefold()
-    normalized = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
+def get_evidence_resources() -> dict:
+    """Load the cached train-only posting index and entity graph once; missing caches become None."""
+    global _evidence_resources
 
-    aliases = {
-        "upfront_payment": "upfront_payment",
-        "upfront_fee": "upfront_payment",
-        "registration_fee": "upfront_payment",
-        "pressure_tactic": "pressure_tactic",
-        "pressure": "pressure_tactic",
-        "requests_personal_information": "sensitive_information",
-        "request_for_sensitive_info": "sensitive_information",
-        "sensitive_information": "sensitive_information",
-        "off_platform_messaging": "off_platform_messaging",
-        "unrealistic_earnings": "unrealistic_earnings",
-        "no_interview": "no_interview",
-    }
-    return aliases.get(normalized, normalized)
+    with _evidence_lock:
+        if _evidence_resources is None:
+            from backend.services import entity_graph, posting_index
+
+            resources = {"posting_index": None, "graph": None}
+            try:
+                train_sha = posting_index.manifest_train_sha256()
+            except Exception:
+                logger.warning("Split manifest not found; evidence indexes are unavailable.")
+                train_sha = None
+            if train_sha:
+                for key, load in (("posting_index", posting_index.load_index),
+                                  ("graph", entity_graph.load_graph)):
+                    try:
+                        resources[key] = load(train_sha)
+                    except FileNotFoundError:
+                        logger.warning("Evidence cache %s not built; run scripts/build_evidence_indexes.py.", key)
+                    except Exception:
+                        logger.exception("Could not load evidence cache %s.", key)
+            _evidence_resources = resources
+
+        return _evidence_resources
 
 
-def combine_warning_signs(rule_signs: list, llm_signs: list) -> list:
-    """Combine warnings, preserving rule-based evidence and removing semantic duplicates."""
-    combined = []
-    seen_categories = set()
+def default_guidance(text: str) -> list:
+    """Trusted guidance from the local Chroma index, using only the locally cached model."""
+    from backend.services.semantic_retrieval import retrieve_semantic
 
-    # Process rule-based findings first so matched text is preserved.
-    for sign in rule_signs:
-        if isinstance(sign, dict):
-            label = str(sign.get("label", "")).strip()
-            category = normalize_warning_category(label)
-            key = category or repr(sign)
+    return retrieve_semantic(text, top_k=3, local_files_only=True)
 
-            if key not in seen_categories:
-                combined.append(sign)
-                seen_categories.add(key)
-        else:
-            category = normalize_warning_category(sign)
-            key = category or repr(sign)
 
-            if key not in seen_categories:
-                combined.append(sign)
-                seen_categories.add(key)
+def get_guidance_fn():
+    return default_guidance
 
-    # Add LLM findings only when their category is not already represented.
-    for sign in llm_signs:
-        if isinstance(sign, dict):
-            label = str(sign.get("label", sign.get("category", ""))).strip()
-        else:
-            label = str(sign).strip()
 
-        category = normalize_warning_category(label)
-        key = category or repr(sign)
+def get_llm_client():
+    return llm_explainer.client_from_env()
 
-        if key not in seen_categories:
-            combined.append(sign)
-            seen_categories.add(key)
 
-    return combined
+def is_structured_request(payload) -> bool:
+    """True when the request carries posting fields beyond the company profile."""
+    return isinstance(payload, dict) and any(
+        field in payload for field in TEXT_FIELDS if field != "company_profile"
+    )
 
-def add_llm_analysis(report: dict, text: str) -> dict:
-    """Add optional evidence-grounded LLM analysis without changing classifier results."""
-    enabled = os.getenv(
-        "ENABLE_LLM_ANALYSIS", "false"
-    ).strip().lower() in {"1", "true", "yes", "on"}
 
-    if not enabled:
-        report["llm_analysis_status"] = "disabled"
-        report["uncertainty_notes"] = [
-            note for note in report["uncertainty_notes"]
-            if "not connected for job postings yet" not in note.lower()
-        ]
-        report["uncertainty_notes"].append(
-            "Additional LLM analysis and retrieved supporting evidence "
-            "were not included because the feature is disabled."
-        )
-        return report
+def structured_posting(payload: dict) -> tuple[str | None, str | None]:
+    """
+    Build the classifier input exactly as the training text was built.
 
-    try:
-        from backend.services.llm_analysis import analyze
+    Returns (text, company_profile). text is None if any field is not a string.
+    company_profile is None when not provided and "" when provided but empty
+    after the same HTML cleaning used for training.
+    """
+    fields = {field: payload.get(field) for field in TEXT_FIELDS}
+    if any(value is not None and not isinstance(value, str) for value in fields.values()):
+        return None, None
 
-        result = analyze(text)
-        analysis = result["analysis"]
+    company_profile = fields["company_profile"]
+    if company_profile is not None:
+        company_profile = clean_field(company_profile) or ""
 
-        report["llm_analysis"] = analysis
+    return build_text(fields), company_profile
 
-        # Keep rule-based findings and add the LLM's findings.
-        report["warning_signs"] = combine_warning_signs(
-            report.get("warning_signs", []),
-            analysis.get("warning_signs", []),
-        )
 
-        report["supporting_evidence"] = result["supporting_evidence"]
-        report["explanation"] = analysis["explanation"]
-        report["recommended_actions"] = analysis["recommended_actions"]
-        report["llm_model"] = result["model"]
+def has_too_little_text(payload: dict) -> bool:
+    """No description/requirements/benefits content, or under MIN_POSTING_CHARS of cleaned text in total."""
+    cleaned = {field: clean_field(payload.get(field)) or "" for field in TEXT_FIELDS}
+    has_body = any(cleaned[field] for field in BODY_FIELDS)
+    total = len(" ".join(value for value in cleaned.values() if value))
+    return not has_body or total < MIN_POSTING_CHARS
 
-        report["uncertainty_notes"] = [
-            note for note in report["uncertainty_notes"]
-            if "not connected for job postings yet" not in note.lower()
-        ]
 
-        for limitation in analysis["limitations"]:
-            if limitation not in report["uncertainty_notes"]:
-                report["uncertainty_notes"].append(limitation)
+def add_evidence_and_explanation(report: dict, text: str, posting_fields: dict) -> dict:
+    """Always attach evidence and an explanation (LLM or template); never change the fixed fields."""
+    fixed = {key: report[key] for key in FIXED_REPORT_KEYS}
+    resources = get_evidence_resources()
 
-    except Exception:
-        logger.warning(
-            "LLM job analysis was unavailable; returning classifier-only report.",
-            exc_info=True,
-        )
-        report["llm_analysis_status"] = "unavailable"
-        report["uncertainty_notes"].append(
-            "Additional LLM analysis and retrieved supporting evidence "
-            "were unavailable. The classifier result is shown independently."
-        )
-    else:
-        report["llm_analysis_status"] = "success"
+    evidence = build_evidence(
+        text,
+        posting_fields,
+        report["warning_signs"],
+        posting_index=resources.get("posting_index"),
+        graph=resources.get("graph"),
+        guidance_fn=get_guidance_fn(),
+    )
+    result = llm_explainer.explain(
+        dict(fixed), evidence, text, client=get_llm_client(), breaker=_breaker,
+    )
 
+    report["evidence"] = evidence
+    report["supporting_evidence"] = evidence["guidance"]
+    report["explanation"] = result["explanation"]
+    report["explanation_source"] = result["explanation_source"]
+    report["cited_evidence_ids"] = result["cited_evidence_ids"]
+    report["llm_caveats"] = result["caveats"]
+    report["llm_status"] = result["llm_status"]
+    if result["llm_status"] != "ok":
+        # Status codes only; never the posting, the model output or provider error text.
+        logger.warning("LLM explanation fell back to the template: status=%s detail=%s rate_limit=%s",
+                       result["llm_status"], result["llm_detail"], result.get("rate_limit_kind") or "-")
+
+    if any(report[key] != value for key, value in fixed.items()):
+        logger.error("A fixed report field changed after the explanation step; restoring it.")
+        report.update(fixed)
     return report
+
+
+DEMO_EXAMPLES_PATH = PROJECT_ROOT / "backend" / "data" / "demo_examples.json"
+
+
+@job_bp.get("/api/demo-examples")
+def demo_examples_route():
+    """Return the prepared example postings (the five posting fields plus a short note)."""
+    try:
+        data = json.loads(DEMO_EXAMPLES_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return jsonify([]), 200
+    if not isinstance(data, list):
+        return jsonify([]), 200
+    examples = [{field: item.get(field) if isinstance(item.get(field), str) else ""
+                 for field in (*TEXT_FIELDS, "note")}
+                for item in data if isinstance(item, dict)]
+    return jsonify(examples), 200
 
 
 @job_bp.post("/api/analyze-job")
 def analyze_job_route():
-    """Accept JSON {"text": "<job posting>"} and return an analysis report."""
+    """
+    Accept JSON and return a report. Two request shapes:
+
+    * {"text": "<job posting>", "company_profile": optional} -- the pasted text becomes the
+      description and goes through the same path as the structured shape below, so the
+      classifier sees the cleaned text and, when given, the cleaned company profile.
+    * Structured: any of title, description, requirements, benefits (plus optional
+      company_profile). The classifier input is built with the training text builder;
+      "text" is ignored in this shape.
+
+    Both shapes use structured_posting: the model text and the "profile present" check
+    for the verdict come from the same cleaned profile (HTML-only or entity-only = empty).
+    """
     payload = request.get_json(silent=True)
-    text = payload.get("text") if isinstance(payload, dict) else None
+    structured = is_structured_request(payload)
+
+    if not structured:
+        pasted = payload.get("text") if isinstance(payload, dict) else None
+        if not isinstance(pasted, str) or not pasted.strip():
+            return jsonify({"error": "Please provide the job posting text."}), 400
+        if len(pasted) > MAX_TEXT_CHARS:
+            return jsonify({
+                "error": (
+                    f"The posting is too long. "
+                    f"Please keep it under {MAX_TEXT_CHARS:,} characters."
+                )
+            }), 413
+        profile = payload.get("company_profile")
+        # Same fields a form would send: description = the pasted text, profile only if it is a string.
+        payload = {"description": pasted, "company_profile": profile if isinstance(profile, str) else None}
+
+    text, company_profile = structured_posting(payload)
 
     if not isinstance(text, str) or not text.strip():
         return jsonify({"error": "Please provide the job posting text."}), 400
@@ -176,6 +226,10 @@ def analyze_job_route():
                 f"Please keep it under {MAX_TEXT_CHARS:,} characters."
             )
         }), 413
+
+    if structured and has_too_little_text(payload):
+        # Only a title/profile, or a few words: not enough to score. No classifier, evidence or LLM.
+        return jsonify(insufficient_report()), 200
 
     try:
         classifier = get_classifier()
@@ -199,10 +253,15 @@ def analyze_job_route():
         logger.exception("DistilBERT prediction failed.")
         return jsonify({"error": "Analysis failed. Please try again."}), 500
 
-    # Pass the posting text so rule-based warning detection can run.
-    report = build_job_report(prediction, text)
+    # None means "not provided"; "" means provided but empty after cleaning (both reported in the verdict).
+    posting_fields = {field: payload.get(field) for field in TEXT_FIELDS}
 
-    # Add optional RAG + LLM analysis without discarding rule-based findings.
-    report = add_llm_analysis(report, text)
+    # Pass the posting text so rule-based warning detection can run.
+    report = build_job_report(prediction, text, company_profile)
+    # New field only: True when the cleaned profile has any text (HTML-only or entity-only counts as none).
+    report["company_profile_present"] = bool(company_profile and str(company_profile).strip())
+
+    # Retrieval evidence and a grounded explanation; the verdict and scores stay fixed.
+    report = add_evidence_and_explanation(report, text, posting_fields)
 
     return jsonify(report), 200

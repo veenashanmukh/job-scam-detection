@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test src/services/highlight.test.mjs src/services/verdictNote.test.mjs src/services/reportView.test.mjs src/services/mainScreen.test.mjs src/services/jobReportRender.test.mjs src/services/cautionScreen.test.mjs src/services/conversation.test.mjs src/services/pasteFormats.test.mjs src/services/chatView.test.mjs src/services/nextSteps.test.mjs src/services/whyCitations.test.mjs src/services/textDisplay.test.mjs src/services/chatPanel.test.mjs src/services/polish.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

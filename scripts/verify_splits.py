@@ -1,10 +1,12 @@
 """Independently verify a set of split files is FRESH and leakage-free. Never trusts the pipeline's own say-so.
 
 Usage (repo root):
-    python scripts/verify_splits.py --dir data/processed_candidate [--max-age-minutes 60]
+    python scripts/verify_splits.py --dir data/processed_candidate [--max-age-minutes 60] [--include-test]
 
-Reads the split CSVs (including test) ONLY to check integrity; never use this to tune or select models.
-Exit code 0 = every check passed, 5 = at least one failed.
+By default test.csv is only hashed against the manifest, never parsed; the checks that need its rows
+(job_id coverage, fraud count, recomputed leakage) are reported as SKIP. Pass --include-test to load the
+test rows and run them. Reads split CSVs ONLY to check integrity; never use this to tune or select models.
+Exit code 0 = every check that ran passed, 5 = at least one failed.
 """
 from __future__ import annotations
 
@@ -27,6 +29,8 @@ def main() -> int:
     ap.add_argument("--dir", required=True)
     ap.add_argument("--raw", default=str(ROOT / "data/raw/fake_job_postings.csv"))
     ap.add_argument("--max-age-minutes", type=float, default=None, help="fail if the manifest is older than this")
+    ap.add_argument("--include-test", action="store_true",
+                    help="parse test.csv to run the row-level checks (default: hash it only)")
     args = ap.parse_args()
 
     results: list[tuple[str, bool, str]] = []
@@ -61,6 +65,8 @@ def main() -> int:
     for name in ds.SPLIT_NAMES:
         p = d / m["splits"][name]["file"]
         hashes_ok &= p.exists() and ds.file_sha256(p) == m["splits"][name]["sha256"]
+        if name == "test" and not args.include_test:
+            continue  # hashed above; content stays unread
         if p.exists():
             parts[name] = pd.read_csv(p)
             parts[name]["text"] = parts[name]["text"].fillna("")  # rows with no text round-trip as NaN
@@ -79,6 +85,9 @@ def main() -> int:
         legacy = {k: v["legacy_split_fit_rows_at_or_above"]
                   for k, v in rep["checks"]["no_cross_split_near_duplicates"]["details"].items()}
         print(f"[INFO] legacy split-fit diagnostic (non-gating) rows >= 0.90: {legacy}")
+    elif not args.include_test:
+        for name in ("every raw job_id appears exactly once", "fraud count matches raw", "recomputed leakage checks"):
+            print(f"[SKIP] {name}: needs test rows; pass --include-test")
 
     for n, ok, det in results:
         print(f"[{'PASS' if ok else 'FAIL'}] {n}{': ' + det if det else ''}")

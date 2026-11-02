@@ -1,0 +1,4 @@
+12/10/2026, 10:15 - Recruiter: The assignment is due urgently, the hiring panel meets tomorrow.
+12/10/2026, 10:17 - You: I will submit it by 6 pm today.
+12/10/2026, 10:19 - Recruiter: Thanks, that works. Send it to the address in my email.
+12/10/2026, 10:21 - You: Done, sent a minute ago.

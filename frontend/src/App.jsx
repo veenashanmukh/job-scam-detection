@@ -2,17 +2,68 @@
 import { useEffect, useRef, useState } from "react";
 import {
   analyzeJob,
+  analyzeJobFields,
   analyzeChat,
+  fetchDemoExamples,
   followUp,
+  signLabel,
+  JOB_FIELDS,
   SAMPLE_JOB,
   FOLLOW_UPS,
 } from "./services/api.js";
+import GuidanceCards from "./components/GuidanceCards.jsx";
+import JobReport from "./JobReport.jsx";
+import { conversationFile, OVERRIDE_LABEL, ROUTED_NOTE, routePastedText } from "./services/conversation.js";
+import {
+  chatPrediction, chatScore, clampDisplayScore, NO_FLAGGED_MESSAGES, showChatGuidance, splitExplanationNote,
+} from "./services/chatView.js";
+import { evidenceView, nextStepsFor, plainSentence } from "./services/reportView.js";
+
+const FIELD_LABELS = {
+  title: "Title",
+  company_profile: "Company profile",
+  description: "Description",
+  requirements: "Requirements",
+  benefits: "Benefits",
+};
+
+const EMPTY_FIELDS = Object.fromEntries(JOB_FIELDS.map((name) => [name, ""]));
+
+// The backend only uses the structured path when one of these is present;
+// a company profile on its own is not enough.
+const CONTENT_FIELDS = ["title", "description", "requirements", "benefits"];
 
 const LEVEL = {
   "Lower risk": "low",
   "Moderate risk": "mid",
   "Higher risk": "high",
 };
+
+// Verdict styling. "Needs Verification" is a caution, never a reassurance.
+const VERDICT = {
+  "Likely Legitimate": {
+    level: "low",
+    icon: "✓",
+    note: "Not flagged by the classifier. This is not a guarantee.",
+  },
+  "Needs Verification": {
+    level: "mid",
+    icon: "!",
+    note: "Caution: verify the company independently before sharing money or personal details.",
+  },
+  "High Fraud Risk": {
+    level: "high",
+    icon: "!",
+    note: "Do not pay any fee or share personal details until the employer is verified.",
+  },
+  "Insufficient Information": {
+    level: "neutral",
+    icon: "?",
+    note: "Not enough text to assess. Add a description.",
+  },
+};
+
+const INSUFFICIENT = "Insufficient Information";
 
 const CHECKS = [
   "Upfront payment or registration fees",
@@ -37,11 +88,6 @@ const STEPS = [
     "See the risk score, the evidence behind it, and what to verify next.",
   ],
 ];
-
-// Phrases highlighted in the submitted text.
-// These highlights are illustrative and do not necessarily mean a phrase is fraudulent.
-const HL =
-  /(refundable registration fee|registration fee|earn rs [\d,]+ per week|bank details|aadhaar|guaranteed placement|guaranteed|no interview|urgent|telegram|deposit|\bfee\b)/gi;
 
 function Logo({ size = 38 }) {
   return (
@@ -85,26 +131,29 @@ function Logo({ size = 38 }) {
   );
 }
 
-function Highlighted({ text }) {
+function VerdictBadge({ verdict, showNote = true }) {
+  const info = VERDICT[verdict];
+
+  if (!info) return null;
+
   return (
-    <>
-      {text.split(HL).map((part, i) =>
-        i % 2 ? (
-          <mark key={i} title="Possible warning sign">
-            {part}
-          </mark>
-        ) : (
-          part
-        )
-      )}
-    </>
+    <div className={`verdict ${info.level}`} role="status">
+      <span className="v-icon" aria-hidden="true">
+        {info.icon}
+      </span>
+
+      <div>
+        <strong>{verdict}</strong>
+        {showNote && <p className="v-note">{info.note}</p>}
+      </div>
+    </div>
   );
 }
 
-function Gauge({ score, category }) {
+function Gauge({ score, category, level: levelOverride, label, note }) {
   const r = 52;
   const c = 2 * Math.PI * r;
-  const level = LEVEL[category];
+  const level = levelOverride || LEVEL[category];
 
   return (
     <div className="gauge">
@@ -144,17 +193,24 @@ function Gauge({ score, category }) {
       </svg>
 
       <div>
-        <span className={`chip big ${level}`}>{category}</span>
+        {label ? (
+          <strong className="g-label">{label}</strong>
+        ) : (
+          <span className={`chip big ${level}`}>{category}</span>
+        )}
 
-        <p className="hint">
-          Provisional score. It is not a probability.
-        </p>
+        <p className="hint">Higher means more risk</p>
+
+        {note && <p className="hint g-note">{note}</p>}
       </div>
     </div>
   );
 }
 
-function Timeline({ items }) {
+// A pasted conversation has no timestamps; label its messages by position instead of leaving the time blank.
+const timeLabel = (item, index) => item.time || `message ${index + 1}`;
+
+function Timeline({ items, highlight }) {
   const w = 360;
   const h = 130;
   const px = 14;
@@ -221,7 +277,7 @@ function Timeline({ items }) {
             className={items[i].sign ? "dot flag" : "dot"}
           >
             <title>
-              {`${items[i].time}: ${
+              {`${timeLabel(items[i], i)}: ${
                 items[i].sign || "no warning sign"
               }`}
             </title>
@@ -229,7 +285,7 @@ function Timeline({ items }) {
         ))}
 
         <text x={px} y={h - 1} className="tl-label">
-          {items[0].time}
+          {timeLabel(items[0], 0)}
         </text>
 
         <text
@@ -238,26 +294,186 @@ function Timeline({ items }) {
           textAnchor="end"
           className="tl-label"
         >
-          {items[items.length - 1].time}
+          {timeLabel(items[items.length - 1], items.length - 1)}
         </text>
       </svg>
 
-      <ul className="flags">
-        {items
-          .filter((m) => m.sign)
-          .map((m, i) => (
-            <li key={i}>
-              <span className="time">{m.time}</span>
-              <strong>{m.sign}</strong>
-              <span className="quote">"{m.text}"</span>
-            </li>
-          ))}
-      </ul>
+      {!items.some((m) => m.sign) && <p className="muted">{NO_FLAGGED_MESSAGES}</p>}
+
+      {items.some((m) => m.sign) && (
+        <ul className="flags">
+          {items
+            .filter((m) => m.sign)
+            .map((m, i) => (
+              <li
+                key={i}
+                id={m.evidence_id ? `ev-${m.evidence_id}` : undefined}
+                className={
+                  m.evidence_id && highlight === m.evidence_id ? "highlighted" : undefined
+                }
+              >
+                <span className="time">{timeLabel(m, items.indexOf(m))}</span>
+                <strong>
+                  {m.evidence_id && <span className="ev-id">[{m.evidence_id}] </span>}
+                  {m.sign}
+                </strong>
+                <span className="quote">"{m.text}"</span>
+              </li>
+            ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-function ReportPanel({ report }) {
+// "[S1]" or grouped "[R1,R3]" / "[R1, R3]" (same pattern the backend validates).
+const CITATION = /(\[\s*[A-Z]\d{1,3}(?:\s*,\s*[A-Z]\d{1,3})*\s*\])/;
+
+// Explanation text with citations turned into one button per known evidence id.
+function CitedText({ text, ids, onCite }) {
+  return (
+    <>
+      {String(text || "")
+        .split(CITATION)
+        .map((part, i) => {
+          if (!CITATION.test(part)) return part;
+          const group = part.slice(1, -1).split(",").map((id) => id.trim());
+          if (!group.some((id) => ids.has(id))) return part;
+          // Known ids render as chips (no brackets); unknown ids keep their bracketed text.
+          return (
+            <span key={i} className="cite-group">
+              {group.map((id, j) => (
+                <span key={id + j}>
+                  {ids.has(id) ? (
+                    <button
+                      type="button"
+                      className="cite"
+                      onClick={() => onCite(id)}
+                      aria-label={`Show evidence ${id}`}
+                    >
+                      {id}
+                    </button>
+                  ) : (
+                    `[${id}]`
+                  )}
+                </span>
+              ))}
+            </span>
+          );
+        })}
+    </>
+  );
+}
+
+function EvidenceSection({ report, highlight, onCite }) {
+  const ev = report.evidence;
+  const similar = ev.similar_postings || [];
+  const graphItems = ev.graph?.items || [];
+  const rules = ev.rule_signs || [];
+  // T ids (chat messages) are shown in the timeline list, which carries their anchors.
+  const ids = new Set(
+    [...similar, ...graphItems, ...rules, ...(ev.guidance || []), ...(ev.messages || [])].map(
+      (e) => e.id
+    )
+  );
+  const cls = (id) => `ev-item${highlight === id ? " highlighted" : ""}`;
+  // Without an AI explanation only the matched signs and similar postings are shown (or one "no evidence" line);
+  // the template explanation would just repeat the headline sentence.
+  const view = evidenceView(report);
+
+  return (
+    <section className="evidence-block" aria-label="Evidence">
+      <h3>Evidence</h3>
+
+      {view.showExplanation && (
+        <p className="explanation">
+          <CitedText text={splitExplanationNote(report.explanation).body} ids={ids} onCite={onCite} />
+        </p>
+      )}
+
+      {view.emptyLine && <p className="muted">{view.emptyLine}</p>}
+
+      {view.aiAvailable && similar.length === 0 && ev.similar_status === "ok" && (
+        <>
+          <h4>Similar known postings</h4>
+          <p className="muted">No close matches in known postings.</p>
+        </>
+      )}
+
+      {similar.length > 0 && (
+        <>
+          <h4>Similar known postings</h4>
+          <ul className="ev-list">
+            {similar.map((s) => (
+              <li key={s.id} id={`ev-${s.id}`} className={cls(s.id)}>
+                <span className="ev-id">[{s.id}]</span>{" "}
+                <span className={`chip small ${s.label === 1 ? "high" : "low"}`}>
+                  {s.label === 1 ? "Known fraud" : "Known legitimate"}
+                </span>{" "}
+                <span className="muted" title="Text similarity, not a probability">
+                  similarity {Number(s.similarity).toFixed(2)}
+                </span>
+                {s.snippet && <p className="ev-snippet">{s.snippet}</p>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {view.showGraph && (graphItems.length > 0 || ev.graph?.note) && (
+        <>
+          <h4>Linked companies and contacts</h4>
+          {graphItems.length === 0 && <p className="muted">{ev.graph.note}</p>}
+          <ul className="ev-list">
+            {graphItems.map((g) => (
+              <li key={g.id} id={`ev-${g.id}`} className={cls(g.id)}>
+                <span className="ev-id">[{g.id}]</span>{" "}
+                {g.message ||
+                  `This ${g.kind_name} appears in ${g.linked_count} known posting${
+                    g.linked_count === 1 ? "" : "s"
+                  } (${g.fraud_count} labelled fraud).`}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {view.showRules && <h4>Warning signs</h4>}
+      {view.showRules && rules.length === 0 && <p className="muted">None detected.</p>}
+
+      {view.showRules && rules.length > 0 && (
+        <>
+          <ul className="ev-list">
+            {rules.map((r) => (
+              <li key={r.id} id={`ev-${r.id}`} className={cls(r.id)}>
+                <span className="ev-id">[{r.id}]</span> <strong>{r.label}</strong>
+                {r.matched_text && (
+                  <span className="muted"> — "{r.matched_text}"</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+    </section>
+  );
+}
+
+function ReportPanel({ report, onChooseYou }) {
+  const [highlight, setHighlight] = useState(null);
+
+  useEffect(() => setHighlight(null), [report]);
+
+  const cite = (id) => {
+    setHighlight(id);
+    const el = document.getElementById(`ev-${id}`);
+    if (el) {
+      if (el.tagName === "DETAILS") el.open = true;
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  };
+
   if (!report) {
     return (
       <aside className="panel">
@@ -276,43 +492,96 @@ function ReportPanel({ report }) {
     );
   }
 
-  const evidence = report.supporting_evidence || [];
+  if (report.verdict === INSUFFICIENT) {
+    return (
+      <aside className="panel">
+        <h2>Job posting report</h2>
+        <VerdictBadge verdict={INSUFFICIENT} />
+      </aside>
+    );
+  }
+
+  // Job postings have their own plain-language screen (JobReport.jsx); everything below is the chat report.
+  if (report.type !== "chat") return <JobReport report={report} />;
+
   const uncertaintyNotes = report.uncertainty_notes || [];
   const warningSigns = report.warning_signs || [];
+  // With an evidence block the rule signs are listed there (citable as R1..), so not twice.
+  const showWarningList = !report.evidence;
+  const prediction = chatPrediction(report);
+  const nextSteps = nextStepsFor(report);
+  // The note about a reused explanation is shown in the collapsed section, not after the explanation.
+  const explanationNote = splitExplanationNote(report.explanation).note;
 
   return (
     <aside className="panel">
-      <h2>
-        {report.type === "chat"
-          ? "Conversation report"
-          : "Job posting report"}
-      </h2>
+      <h2>Conversation report</h2>
 
       <Gauge
-        score={report.risk_score}
+        score={chatScore(report)}
         category={report.risk_category}
       />
 
-      {report.type !== "chat" &&
-        report.classifier_risk_score !== undefined && (
-          <p className="muted">
-            Classifier score: {report.classifier_risk_score}/100
-            {" · "}
-            Warning adjustment: +{report.warning_adjustment ?? 0}
-          </p>
-        )}
+      {report.participants?.length > 1 && onChooseYou && (
+        <p className="you-picker">
+          <label htmlFor="you-select">You in this chat:</label>{" "}
+          <select
+            id="you-select"
+            value={report.you || ""}
+            onChange={(e) => onChooseYou(e.target.value)}
+          >
+            {!report.you && <option value="">Not sure (score everyone)</option>}
+            {report.participants.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>{" "}
+          <span className="muted">
+            {report.you
+              ? "Your own messages are not scored."
+              : "Pick your name so your own messages are not scored."}
+          </span>
+        </p>
+      )}
 
-      <p className="pred">
-        <span>Classifier:</span> {report.classifier_prediction}
-      </p>
+      {report.evidence && (
+        <EvidenceSection report={report} highlight={highlight} onCite={cite} />
+      )}
 
-      <h3>Warning signs</h3>
+      {prediction.text && (
+        <p className="pred">
+          {prediction.labelled && <span>Rule check:</span>} {prediction.text}
+        </p>
+      )}
 
-      {warningSigns.length > 0 ? (
+      {nextSteps.length > 0 && (
+        <>
+          <h3>What to do next</h3>
+          <ul className="next">
+            {nextSteps.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {explanationNote && (
+        <details className="how-decided">
+          <summary>How this was decided</summary>
+          <ul>
+            <li>{explanationNote}</li>
+          </ul>
+        </details>
+      )}
+
+      {showWarningList && <h3>Warning signs</h3>}
+
+      {!showWarningList ? null : warningSigns.length > 0 ? (
         <ul className="signs">
           {warningSigns.map((s, index) => {
             const isRuleFinding = typeof s === "object" && s !== null;
-            const label = isRuleFinding ? s.label : s;
+            const label = signLabel(s);
             const matchedText = isRuleFinding ? s.matched_text : null;
 
             return (
@@ -332,93 +601,14 @@ function ReportPanel({ report }) {
         <p className="muted">None detected.</p>
       )}
 
-      {report.source_text && (
-        <>
-          <h3>Your text, with warning phrases marked</h3>
-
-          <div className="source">
-            <Highlighted text={report.source_text} />
-          </div>
-        </>
-      )}
-
       {report.timeline?.length > 0 && (
         <>
           <h3>Risk timeline</h3>
-          <Timeline items={report.timeline} />
+          <Timeline items={report.timeline} highlight={highlight} />
         </>
       )}
 
-      {evidence.length > 0 && (
-        <>
-          <h3>Related Scam-Prevention Guidance</h3>
-
-          <p className="muted">
-            These sources describe common recruitment scams and ways to
-            identify suspicious job offers. They provide general guidance
-            related to this analysis; they do not independently verify
-            whether this specific job posting is legitimate or fraudulent.
-            Similarity scores indicate text relevance, not the probability
-            that a scam has occurred.
-          </p>
-
-          {evidence.map((e, index) => (
-            <details
-              key={e.id || `${e.title || "evidence"}-${index}`}
-              className="evidence"
-            >
-              <summary>
-                <span className="eid">{e.title || e.id || "Source"}</span>
-
-                <span className="sim" title="Text similarity">
-                  <span className="simbar">
-                    <span
-                      style={{
-                        width: `${
-                          Math.max(
-                            0,
-                            Math.min(1, Number(e.similarity) || 0)
-                          ) * 100
-                        }%`,
-                      }}
-                    />
-                  </span>
-
-                  {typeof e.similarity === "number"
-                    ? e.similarity.toFixed(2)
-                    : "N/A"}
-                </span>
-              </summary>
-
-              <p>
-                {e.excerpt || "No evidence excerpt is available."}
-              </p>
-
-              <p className="muted">
-                Source: {e.publisher || "Unknown publisher"}
-              </p>
-
-              {e.warning_sign_tags?.length > 0 && (
-                <p className="muted">
-                  Related warning signs: {e.warning_sign_tags.join(", ")}
-                </p>
-              )}
-
-              {e.url && (
-                <p>
-                  <a
-                    href={e.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Read original source ↗
-                  </a>
-                </p>
-              )}
-            </details>
-          ))}
-        </>
-      )}
+      {showChatGuidance(report) && <GuidanceCards report={report} highlight={highlight} />}
 
       <h3>Limitations and uncertainty</h3>
 
@@ -441,10 +631,38 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [report, setReport] = useState(null);
   const [input, setInput] = useState("");
+  const [fields, setFields] = useState(EMPTY_FIELDS);
+  const [pasteMode, setPasteMode] = useState(false);
+  const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [examples, setExamples] = useState([]);
+  const exampleIdx = useRef(0);
+  const [exampleNote, setExampleNote] = useState("");
+
+  useEffect(() => {
+    fetchDemoExamples().then(setExamples);
+  }, []);
+
+  function loadExample() {
+    if (!examples.length) return;
+    const ex = examples[exampleIdx.current % examples.length];
+    exampleIdx.current += 1;
+    setFields(Object.fromEntries(JOB_FIELDS.map((name) => [name, ex[name] || ""])));
+    setExampleNote(ex.note || "");
+    setPasteMode(false);
+    setFormError("");
+  }
 
   const endRef = useRef(null);
   const fileRef = useRef(null);
+  const lastChatRef = useRef(null); // the last chat file, to re-check with a chosen "you"
+
+  const chooseYou = (name) => {
+    const last = lastChatRef.current;
+    if (!busy && last && name) {
+      runChat(last.file, last.label, name, { untimestamped: last.untimestamped, routedFrom: last.routedFrom });
+    }
+  };
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -457,17 +675,25 @@ export default function App() {
     setMessages([]);
     setReport(null);
     setInput("");
+    setFields(EMPTY_FIELDS);
+    setFormError("");
   };
 
-  async function runJob(text) {
-    add({ role: "user", text });
+  const setField = (name, value) => {
+    setFields((prev) => ({ ...prev, [name]: value }));
+    setFormError("");
+  };
+
+  // request is either { text, profile } (pasted posting) or { fields } (form).
+  async function runJob(text, request) {
+    add({ role: "user", text: request.userLabel || text });
     setBusy(true);
 
     try {
-      const r = {
-        ...(await analyzeJob(text)),
-        source_text: text,
-      };
+      const result = request.fields
+        ? await analyzeJobFields(request.fields)
+        : await analyzeJob(request.text, request.profile);
+      const r = { ...result, source_text: text };
 
       setReport(r);
 
@@ -493,12 +719,23 @@ export default function App() {
     }
   }
 
-  async function runChat(file, label) {
-    add({ role: "user", text: `Uploaded file: ${label}` });
+  // options: { untimestamped, routedFrom, userText } for a conversation pasted into the job box and routed here.
+  async function runChat(file, label, you = "", options = {}) {
+    const prev = lastChatRef.current;
+    const sameChat = prev && prev.file === file;
+    // Keep the first analysis's explanation; re-checks reuse it instead of calling the LLM again.
+    const firstExplanation = you && sameChat ? prev.firstExplanation : "";
+    const { untimestamped = false, routedFrom = null, userText = "" } = options;
+    lastChatRef.current = { file, label, firstExplanation, untimestamped, routedFrom };
+    add({
+      role: "user",
+      text: userText || (you ? `Re-check ${label} with "${you}" as me` : `Uploaded file: ${label}`),
+    });
     setBusy(true);
 
     try {
-      const r = await analyzeChat(file);
+      const r = await analyzeChat(file, you, firstExplanation, untimestamped);
+      if (r.explanation_source !== "first_analysis") lastChatRef.current.firstExplanation = r.explanation;
 
       setReport(r);
 
@@ -506,6 +743,7 @@ export default function App() {
         role: "assistant",
         text: r.explanation,
         report: r,
+        routedFrom,
       });
     } catch (error) {
       add({
@@ -522,9 +760,34 @@ export default function App() {
   }
 
   function send() {
+    if (busy) return;
+    if (pasteMode) sendPasted();
+    else sendFields();
+  }
+
+  function sendFields() {
+    if (!CONTENT_FIELDS.some((name) => fields[name].trim())) {
+      setFormError(
+        "Add at least a title, description, requirements or benefits. " +
+          "A company profile on its own is not enough to analyze a posting."
+      );
+      return;
+    }
+
+    // Shown in the chat and highlighted in the report; mirrors the field order.
+    const summary = JOB_FIELDS.filter((name) => fields[name].trim())
+      .map((name) => `${FIELD_LABELS[name]}: ${fields[name].trim()}`)
+      .join("\n");
+
+    runJob(summary, { fields });
+    setFields(EMPTY_FIELDS);
+    setFormError("");
+  }
+
+  function sendPasted() {
     const text = input.trim();
 
-    if (!text || busy) return;
+    if (!text) return;
 
     setInput("");
 
@@ -539,7 +802,26 @@ export default function App() {
       return;
     }
 
-    runJob(text);
+    if (routePastedText(text) === "chat") {
+      // Speaker-labelled lines from at least two people: check it as a chat. The user can switch back below.
+      const profile = fields.company_profile;
+      setField("company_profile", "");
+      runChat(conversationFile(text), "pasted conversation", "", {
+        untimestamped: true,
+        routedFrom: { text, profile },
+        userText: text,
+      });
+      return;
+    }
+
+    runJob(text, { text, profile: fields.company_profile });
+    setField("company_profile", "");
+  }
+
+  // The override: run the pasted text as a job posting after all (routePastedText(text, { forceJob: true })).
+  function checkAsJobPosting(routed) {
+    if (busy) return;
+    runJob(routed.text, { text: routed.text, profile: routed.profile, userLabel: OVERRIDE_LABEL });
   }
 
   function upload(e) {
@@ -628,7 +910,12 @@ export default function App() {
                   </div>
 
                   <div className="samples">
-                    <button onClick={() => setInput(SAMPLE_JOB)}>
+                    <button
+                      onClick={() => {
+                        setPasteMode(true);
+                        setInput(SAMPLE_JOB);
+                      }}
+                    >
                       Try a sample job posting
                     </button>
 
@@ -654,24 +941,72 @@ export default function App() {
                       m.error ? "error" : ""
                     }`}
                   >
-                    <p>{m.text}</p>
-
-                    {m.report && (
-                      <p className="inline-risk">
-                        <span
-                          className={`chip ${
-                            LEVEL[m.report.risk_category]
-                          }`}
+                    {m.routedFrom && (
+                      <p className="route-note">
+                        {ROUTED_NOTE}{" "}
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => checkAsJobPosting(m.routedFrom)}
+                          disabled={busy}
                         >
-                          {m.report.risk_category}
-                        </span>
-
-                        <span>
-                          Score {m.report.risk_score}. Details are in the
-                          report.
-                        </span>
+                          {OVERRIDE_LABEL}
+                        </button>
                       </p>
                     )}
+
+                    <p>{(m.report && plainSentence(m.report)) || splitExplanationNote(m.text).body}</p>
+
+                    {m.report?.verdict === INSUFFICIENT ? (
+                      <p className="inline-risk">
+                        <span className="chip neutral">{INSUFFICIENT}</span>
+                        <span>No score: add a description.</span>
+                      </p>
+                    ) : m.report &&
+                      (VERDICT[m.report.verdict] &&
+                      typeof m.report.display_risk_score === "number" ? (
+                        <p className="inline-risk">
+                          <span
+                            className={`chip ${
+                              VERDICT[m.report.verdict].level
+                            }`}
+                          >
+                            {m.report.verdict}
+                          </span>
+
+                          <span>
+                            Risk score {clampDisplayScore(m.report.display_risk_score)} / 100.
+                            Higher means more risk.
+                          </span>
+                        </p>
+                      ) : VERDICT[m.report.verdict] ? (
+                        <p className="inline-risk">
+                          <span
+                            className={`chip ${
+                              VERDICT[m.report.verdict].level
+                            }`}
+                          >
+                            {m.report.verdict}
+                          </span>
+
+                          <span>Details are in the report.</span>
+                        </p>
+                      ) : (
+                        <p className="inline-risk">
+                          <span
+                            className={`chip ${
+                              LEVEL[m.report.risk_category]
+                            }`}
+                          >
+                            {m.report.risk_category}
+                          </span>
+
+                          <span>
+                            Risk score {chatScore(m.report)} / 100. Higher
+                            means more risk.
+                          </span>
+                        </p>
+                      ))}
 
                     {m === lastWithReport && !busy && (
                       <div className="followups">
@@ -707,6 +1042,86 @@ export default function App() {
               <div ref={endRef} />
             </div>
 
+            <div className="job-form">
+              <label className="mode-toggle">
+                <input
+                  type="checkbox"
+                  checked={pasteMode}
+                  onChange={(e) => {
+                    setPasteMode(e.target.checked);
+                    setFormError("");
+                  }}
+                  disabled={busy}
+                />
+                Paste full posting instead
+              </label>
+
+              {!pasteMode && (
+                <div className="field">
+                  <label htmlFor="job-title">
+                    Title <span className="muted">(optional)</span>
+                  </label>
+                  <input
+                    id="job-title"
+                    type="text"
+                    value={fields.title}
+                    onChange={(e) => setField("title", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        send();
+                      }
+                    }}
+                    placeholder="e.g. Data Entry Clerk"
+                    disabled={busy}
+                  />
+                </div>
+              )}
+
+              <div className="field">
+                <label htmlFor="company-profile">
+                  Company profile <span className="muted">(optional)</span>
+                </label>
+                <textarea
+                  id="company-profile"
+                  value={fields.company_profile}
+                  onChange={(e) => setField("company_profile", e.target.value)}
+                  placeholder="Paste the 'About the company' section, if the posting has one..."
+                  rows={2}
+                  disabled={busy}
+                  aria-describedby="company-profile-note"
+                />
+                <p id="company-profile-note" className="field-note">
+                  Leaving this empty is treated as "no company profile". In our
+                  data, postings without one were about 6 times more often
+                  fraudulent, so an empty profile raises the risk estimate.
+                </p>
+              </div>
+
+              {!pasteMode &&
+                ["description", "requirements", "benefits"].map((name) => (
+                  <div className="field" key={name}>
+                    <label htmlFor={`job-${name}`}>
+                      {FIELD_LABELS[name]}{" "}
+                      <span className="muted">(optional)</span>
+                    </label>
+                    <textarea
+                      id={`job-${name}`}
+                      value={fields[name]}
+                      onChange={(e) => setField(name, e.target.value)}
+                      rows={name === "description" ? 3 : 2}
+                      disabled={busy}
+                    />
+                  </div>
+                ))}
+
+              {formError && (
+                <p className="form-error" role="alert">
+                  {formError}
+                </p>
+              )}
+            </div>
+
             <div className="composer">
               <input
                 ref={fileRef}
@@ -724,36 +1139,59 @@ export default function App() {
                 Upload chat
               </button>
 
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-                placeholder="Paste a job posting here..."
-                rows={2}
-                aria-label="Job posting text"
-              />
+              {pasteMode ? (
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send();
+                    }
+                  }}
+                  placeholder="Paste a job posting here..."
+                  rows={2}
+                  aria-label="Job posting text"
+                />
+              ) : (
+                <span className="composer-spacer" />
+              )}
+
+              {!pasteMode && examples.length > 0 && (
+                <p className="example-row">
+                  <button type="button" onClick={loadExample} disabled={busy}>
+                    Load an example
+                  </button>
+                  <span className="muted">
+                    {" "}Examples come from the research dataset (contacts are hashed).
+                  </span>
+                  {exampleNote && (
+                    <span className="muted example-note">
+                      <br />
+                      {exampleNote}
+                    </span>
+                  )}
+                </p>
+              )}
 
               <button
                 className="primary"
                 onClick={send}
-                disabled={busy || !input.trim()}
+                disabled={busy || (pasteMode && !input.trim())}
               >
                 Analyze
               </button>
             </div>
 
             <p className="hintline">
-              Enter to send, Shift+Enter for a new line. Results are warning
-              signs, not proof.
+              {pasteMode
+                ? "Enter to send, Shift+Enter for a new line. "
+                : "Fill in the fields you have; separate fields match how the model was trained. "}
+              Results are warning signs, not proof.
             </p>
           </section>
 
-          <ReportPanel report={report} />
+          <ReportPanel report={report} onChooseYou={chooseYou} />
         </main>
       </div>
     </>

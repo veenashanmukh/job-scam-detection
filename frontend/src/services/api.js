@@ -196,21 +196,40 @@ const SAMPLE_REPORT_CHAT = {
   ],
 };
 
-export async function analyzeJob(text) {
+export const SERVER_UNREACHABLE = "Could not reach the analysis server. Please try again in a moment.";
+
+// The server's own message when it sent one; otherwise (a bare 500 from a proxy or a crash) the plain message above.
+export function requestErrorMessage(data) {
+  return (data && typeof data === "object" && (data.error || data.message)) || SERVER_UNREACHABLE;
+}
+
+// fetch + JSON with one error path: a network failure or a failed response without a message gives SERVER_UNREACHABLE.
+async function send(url, options) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch {
+    throw new Error(SERVER_UNREACHABLE);
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(requestErrorMessage(data));
+  return data;
+}
+
+export async function analyzeJob(text, companyProfile = "") {
   if (!USE_MOCK) {
-    const res = await fetch("/api/analyze-job", {
+    const body = { text };
+
+    // Omit the field when empty so the backend reports "company profile not provided".
+    if (companyProfile && companyProfile.trim()) {
+      body.company_profile = companyProfile;
+    }
+
+    const data = await send("/api/analyze-job", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(body),
     });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      throw new Error(
-        data.error || data.message || `Job analysis failed (${res.status})`
-      );
-    }
 
     return { type: "job", ...data };
 
@@ -220,14 +239,67 @@ export async function analyzeJob(text) {
   return RISKY.test(text) ? SAMPLE_REPORT_HIGH : SAMPLE_REPORT_LOW;
 }
 
-export async function analyzeChat(file) {
+// Posting fields in the order the classifier was trained on.
+export const JOB_FIELDS = [
+  "title",
+  "company_profile",
+  "description",
+  "requirements",
+  "benefits",
+];
+
+// Send the posting as separate fields so the backend builds the classifier input
+// in the training format. `text` is deliberately not sent alongside them.
+export async function analyzeJobFields(fields) {
+  const body = {};
+  for (const name of JOB_FIELDS) {
+    body[name] = typeof fields[name] === "string" ? fields[name] : "";
+  }
+
+  if (!USE_MOCK) {
+    const data = await send("/api/analyze-job", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    return { type: "job", ...data };
+  }
+
+  await delay(900);
+  return RISKY.test(JOB_FIELDS.map((name) => body[name]).join("\n"))
+    ? SAMPLE_REPORT_HIGH
+    : SAMPLE_REPORT_LOW;
+}
+
+// Warning signs arrive as strings (LLM, chat) or objects (rules: {label, matched_text}).
+export function signLabel(sign) {
+  if (typeof sign === "string") return sign;
+  if (sign && typeof sign === "object") {
+    return String(
+      sign.label || sign.category || sign.name || sign.title || JSON.stringify(sign)
+    );
+  }
+  return String(sign ?? "");
+}
+
+export function formatSign(sign) {
+  const label = signLabel(sign);
+  const matched = sign && typeof sign === "object" ? sign.matched_text : null;
+  return matched ? `${label} ("${matched}")` : label;
+}
+
+// `you` is optional: the sender name to treat as the user (their messages are not scored).
+// `firstExplanation` (re-checks only) is reused by the server instead of calling the LLM again.
+// `untimestamped` (a pasted "Speaker: text" conversation) lets the server read lines that have no timestamp.
+export async function analyzeChat(file, you = "", firstExplanation = "", untimestamped = false) {
   if (file === null) {
     const sampleFile = new File(
       [SAMPLE_CHAT_TEXT],
       "sample_chat.txt",
       { type: "text/plain" }
     );
-    return analyzeChat(sampleFile);
+    return analyzeChat(sampleFile, you, firstExplanation, untimestamped);
   }
 
   if (!file) {
@@ -237,19 +309,14 @@ export async function analyzeChat(file) {
   if (!USE_MOCK) {
     const form = new FormData();
     form.append("file", file);
+    if (you) form.append("you", you);
+    if (you && firstExplanation) form.append("first_explanation", firstExplanation);
+    if (untimestamped) form.append("untimestamped", "1");
 
-    const res = await fetch("/api/analyze-chat", {
+    const data = await send("/api/analyze-chat", {
       method: "POST",
       body: form,
     });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      throw new Error(
-        data.error || data.message || `Chat analysis failed (${res.status})`
-      );
-    }
 
     return { type: "chat", ...data };
   }
@@ -265,7 +332,7 @@ export function followUp(question, report) {
     case "Which parts look suspicious?":
       return signs.length
         ? "These parts stood out: " +
-            signs.join("; ") +
+            signs.map(formatSign).join("; ") +
             ". Each one is a warning sign, not proof of fraud."
         : "No strong warning signs were found in this text.";
 
@@ -290,7 +357,7 @@ export function followUp(question, report) {
     case "Summarize the warning signs":
       return signs.length
         ? "In order: " +
-            signs.join(", ") +
+            signs.map(formatSign).join(", ") +
             ". Together they may indicate a suspicious recruitment pattern."
         : "No strong warning signs were returned.";
 
@@ -305,5 +372,17 @@ export function followUp(question, report) {
         "Contact the company using details you find yourself. Never pay to get a job. " +
         "Do not share bank or identity details before you have confirmed the offer."
       );
+  }
+}
+
+// Prepared example postings; an empty list if the server has none.
+export async function fetchDemoExamples() {
+  try {
+    const res = await fetch("/api/demo-examples");
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
   }
 }

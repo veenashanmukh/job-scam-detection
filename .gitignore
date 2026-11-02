@@ -65,3 +65,22 @@ backend/models_v2/distilbert_job_scam/
 
 # Temporary validation output
 prepare_error.txt
+
+# Entity graph cache (built locally from train.csv)
+backend/models_v2/*.pkl
+
+# Live grounding-evaluation results (resumable, per model)
+reports/grounding_runs/
+
+# Live paraphrase-robustness results (resumable, per model; hold generated posting text)
+reports/paraphrase_runs/
+
+# Score cache for the profile-defence measurement (derived from validation text)
+reports/profile_runs/
+
+# Never commit: held-out evaluation data, the copy prepared for a friend, and any evaluation run folder
+data/*heldout*/
+*heldout*/
+baseline_files_for_friend/
+baseline_files_for_friend.zip
+reports/*_runs/

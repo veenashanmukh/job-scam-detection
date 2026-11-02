@@ -1,0 +1,5 @@
+12/10/2026, 10:15 - Recruiter: Hi, thanks for applying for the analyst role. I will be your recruiting contact.
+12/10/2026, 10:17 - You: Thanks, when is the interview?
+12/10/2026, 10:19 - Recruiter: The hiring manager is traveling, so we do a chat based interview. Please install the Wire app so we can proceed.
+12/10/2026, 10:21 - You: OK, installed.
+12/10/2026, 10:23 - Recruiter: Great. Your interview is passed. Salary is $8,000 a month. Please transfer $200 as a joining kit fee to receive your contract.

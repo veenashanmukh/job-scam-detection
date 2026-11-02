@@ -1,0 +1,134 @@
+[
+ {
+  "id": "jd_s01",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "fake_cheque",
+  "title": "Remote Data Entry Clerk",
+  "company_profile": "",
+  "description": "Start this week and earn $30 an hour from home. After you accept we send you a cheque for $3,000. Deposit it, keep $500 as your pay and wire the balance to our supplier so your equipment can be dispatched.",
+  "requirements": "Smartphone and a bank account.",
+  "benefits": "Weekly pay, free laptop."
+ },
+ {
+  "id": "jd_s02",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "training_fee",
+  "title": "Customer Care Associate",
+  "company_profile": "",
+  "description": "We are hiring 20 associates at once, no interview. Before your joining letter is issued you must pay a certified training fee of $90 through our payment link.",
+  "requirements": "None. Training is provided.",
+  "benefits": "Fixed salary of $1,800 a month."
+ },
+ {
+  "id": "jd_s03",
+  "label": "scam",
+  "difficulty": "easy",
+  "type": "task_topup",
+  "title": "Online Product Rating Assistant",
+  "company_profile": "",
+  "description": "Rate products on our shopping platform and earn commission on every order. Each task set requires a starter balance of $150 in USDT which is returned together with your commission within the hour.",
+  "requirements": "Phone and internet.",
+  "benefits": "Daily payment up to $300."
+ },
+ {
+  "id": "jd_s04",
+  "label": "scam",
+  "difficulty": "medium",
+  "type": "visa_fee",
+  "title": "Hotel Staff Overseas",
+  "company_profile": "",
+  "description": "Positions open in Europe with free accommodation. Send a copy of your passport and pay $400 processing and $120 medical by transfer; the company only communicates with applicants through its agent on Telegram.",
+  "requirements": "Passport valid for 2 years.",
+  "benefits": "Salary 3,200 euros a month, visa sponsorship."
+ },
+ {
+  "id": "jd_s05",
+  "label": "scam",
+  "difficulty": "medium",
+  "type": "payroll_login",
+  "title": "Administrative Assistant (Remote)",
+  "company_profile": "",
+  "description": "You have been selected without an interview. To set up payroll we need your online banking username, password and a photo of your ID today.",
+  "requirements": "Basic computer skills.",
+  "benefits": "Signing bonus of $1,500."
+ },
+ {
+  "id": "jd_s06",
+  "label": "scam",
+  "difficulty": "hard",
+  "type": "reship",
+  "title": "Logistics Coordinator at Home",
+  "company_profile": "",
+  "description": "You receive parcels at your own address, repack them and post them on to our overseas address within 24 hours. We reimburse postage at the end of the month.",
+  "requirements": "A home address and a printer.",
+  "benefits": "$600 per week."
+ },
+ {
+  "id": "jd_b01",
+  "label": "benign",
+  "difficulty": "easy",
+  "type": "entry_level",
+  "title": "Customer Support Representative",
+  "company_profile": "",
+  "description": "We are hiring a support representative for our Pune office. You will answer customer emails and chats and escalate issues to the technical team.",
+  "requirements": "No prior experience required; training provided. Good written English.",
+  "benefits": "Health insurance, 22 paid leave days, hybrid work."
+ },
+ {
+  "id": "jd_b02",
+  "label": "benign",
+  "difficulty": "easy",
+  "type": "senior_high_pay",
+  "title": "Head of Engineering",
+  "company_profile": "",
+  "description": "Lead a team of 25 engineers building our payments platform. You will own the roadmap, hiring and delivery.",
+  "requirements": "10+ years of experience, including 4 years managing managers.",
+  "benefits": "Base salary of 85 LPA with equity, relocation support and health cover."
+ },
+ {
+  "id": "jd_b03",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "scam_warning",
+  "title": "Recruitment Coordinator",
+  "company_profile": "",
+  "description": "Coordinate interviews and offers for our engineering teams. Please note that we never ask candidates to pay fees or share bank details before an offer is signed.",
+  "requirements": "Organised, strong communication skills.",
+  "benefits": "Hybrid work and annual bonus."
+ },
+ {
+  "id": "jd_b04",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "reimbursement",
+  "title": "Field Sales Executive",
+  "company_profile": "",
+  "description": "Visit retail partners across Karnataka. Travel and phone expenses are reimbursed monthly against receipts.",
+  "requirements": "Valid driving licence; 1 year of sales experience.",
+  "benefits": "Fixed salary plus commission, reimbursement of expenses."
+ },
+ {
+  "id": "jd_b05",
+  "label": "benign",
+  "difficulty": "medium",
+  "type": "post_offer_id",
+  "title": "Accounts Executive",
+  "company_profile": "",
+  "description": "Maintain ledgers and prepare monthly reports. After you accept our offer, HR will collect your ID and bank details through the secure employee portal for payroll.",
+  "requirements": "B.Com and 2 years of experience.",
+  "benefits": "Provident fund, insurance."
+ },
+ {
+  "id": "jd_b06",
+  "label": "benign",
+  "difficulty": "hard",
+  "type": "interview_on_messaging",
+  "title": "Graphic Designer (Freelance)",
+  "company_profile": "",
+  "description": "Design social media creatives for our brand. Interviews are conducted over a short video call, and project briefs are shared over WhatsApp groups with our team.",
+  "requirements": "Portfolio of at least 5 projects.",
+  "benefits": "Paid per project at agreed rates."
+ }
+]

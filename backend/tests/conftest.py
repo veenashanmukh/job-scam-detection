@@ -81,6 +81,22 @@ def make_fixture(n=400, fraud_rate=0.06, seed=7) -> pd.DataFrame:
     return pd.concat([df, pd.DataFrame(extra)], ignore_index=True)
 
 
+@pytest.fixture(autouse=True)
+def _no_live_llm_or_guidance(monkeypatch):
+    """No test may reach a real LLM, the guidance model or the evidence caches; tests opt in with fakes."""
+    try:
+        from backend.routes import job_routes
+        from backend.services import llm_explainer
+    except ImportError:  # flask or other app dependencies missing: nothing to stub
+        yield
+        return
+    monkeypatch.setattr(job_routes, "get_llm_client", lambda: None)
+    monkeypatch.setattr(job_routes, "get_guidance_fn", lambda: None)
+    monkeypatch.setattr(job_routes, "get_evidence_resources", lambda: {"posting_index": None, "graph": None})
+    monkeypatch.setattr(job_routes, "_breaker", llm_explainer.CircuitBreaker())
+    yield
+
+
 @pytest.fixture(scope="session")
 def fixture_df() -> pd.DataFrame:
     return make_fixture()
