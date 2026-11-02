@@ -192,6 +192,11 @@ mark{background:var(--high-bg);color:var(--high);border-bottom:2px solid var(--h
 .how-decided summary{cursor:pointer;font-weight:600}
 .how-decided ul{margin:6px 0 0;padding-left:18px}
 .how-decided li span{font-weight:600}
+.score-ring{display:flex;align-items:center;gap:14px;margin:14px 0 0}
+.score-ring svg{width:120px;height:120px;flex:none}
+.score-ring-note{font-size:.85rem;color:var(--muted)}
+.g-inner.low{fill:var(--low-bg)} .g-inner.mid{fill:var(--mid-bg)} .g-inner.high{fill:var(--high-bg)}
+.g-score.low{fill:var(--low)} .g-score.mid{fill:var(--mid)} .g-score.high{fill:var(--high)}
 .score-line{display:flex;align-items:baseline;gap:10px;margin:12px 0 0}
 .score-line strong{font-size:1.9rem;line-height:1}
 .score-line span{font-size:.85rem;color:var(--muted)}

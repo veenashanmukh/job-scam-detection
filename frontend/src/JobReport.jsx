@@ -1,4 +1,5 @@
 import GuidanceCards from "./components/GuidanceCards.jsx";
+import ScoreRing from "./components/ScoreRing.jsx";
 import { highlightSegments } from "./services/highlight.js";
 import { buildMainScreen, technicalDetails } from "./services/reportView.js";
 
@@ -113,11 +114,8 @@ export default function JobReport({ report }) {
         <p className={`plain-verdict ${screen.level}`}>{screen.sentence}</p>
       )}
 
-      {screen.scoreText && (
-        <p className="score-line">
-          <strong>{screen.scoreText}</strong>
-          <span>{screen.scoreNote}</span>
-        </p>
+      {typeof screen.score === "number" && (
+        <ScoreRing score={screen.score} note={screen.scoreNote} />
       )}
 
       <h3>What we checked</h3>
