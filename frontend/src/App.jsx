@@ -633,6 +633,8 @@ export default function App() {
   const [input, setInput] = useState("");
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [pasteMode, setPasteMode] = useState(false);
+  // The input form folds away once an analysis starts so the results get the space.
+  const [formOpen, setFormOpen] = useState(true);
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
   const [examples, setExamples] = useState([]);
@@ -677,6 +679,7 @@ export default function App() {
     setInput("");
     setFields(EMPTY_FIELDS);
     setFormError("");
+    setFormOpen(true);
   };
 
   const setField = (name, value) => {
@@ -688,6 +691,7 @@ export default function App() {
   async function runJob(text, request) {
     add({ role: "user", text: request.userLabel || text });
     setBusy(true);
+    setFormOpen(false);
 
     try {
       const result = request.fields
@@ -732,6 +736,7 @@ export default function App() {
       text: userText || (you ? `Re-check ${label} with "${you}" as me` : `Uploaded file: ${label}`),
     });
     setBusy(true);
+    setFormOpen(false);
 
     try {
       const r = await analyzeChat(file, you, firstExplanation, untimestamped);
@@ -1042,19 +1047,33 @@ export default function App() {
               <div ref={endRef} />
             </div>
 
+            {formOpen ? (
+            <>
             <div className="job-form">
-              <label className="mode-toggle">
-                <input
-                  type="checkbox"
-                  checked={pasteMode}
-                  onChange={(e) => {
-                    setPasteMode(e.target.checked);
-                    setFormError("");
-                  }}
-                  disabled={busy}
-                />
-                Paste full posting instead
-              </label>
+              <div className="form-head">
+                <label className="mode-toggle">
+                  <input
+                    type="checkbox"
+                    checked={pasteMode}
+                    onChange={(e) => {
+                      setPasteMode(e.target.checked);
+                      setFormError("");
+                    }}
+                    disabled={busy}
+                  />
+                  Paste full posting instead
+                </label>
+
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setFormOpen(false)}
+                  >
+                    Hide form
+                  </button>
+                )}
+              </div>
 
               {!pasteMode && (
                 <div className="field">
@@ -1098,6 +1117,26 @@ export default function App() {
                 </p>
               </div>
 
+              {pasteMode && (
+                <div className="field">
+                  <label htmlFor="job-posting">Job posting</label>
+                  <textarea
+                    id="job-posting"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        send();
+                      }
+                    }}
+                    placeholder="Paste a job posting here..."
+                    rows={5}
+                    disabled={busy}
+                  />
+                </div>
+              )}
+
               {!pasteMode &&
                 ["description", "requirements", "benefits"].map((name) => (
                   <div className="field" key={name}>
@@ -1139,23 +1178,7 @@ export default function App() {
                 Upload chat
               </button>
 
-              {pasteMode ? (
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      send();
-                    }
-                  }}
-                  placeholder="Paste a job posting here..."
-                  rows={2}
-                  aria-label="Job posting text"
-                />
-              ) : (
-                <span className="composer-spacer" />
-              )}
+              <span className="composer-spacer" />
 
               {!pasteMode && examples.length > 0 && (
                 <p className="example-row">
@@ -1189,6 +1212,22 @@ export default function App() {
                 : "Fill in the fields you have; separate fields match how the model was trained. "}
               Results are warning signs, not proof.
             </p>
+            </>
+            ) : (
+              <div className="composer collapsed">
+                <span className="muted">
+                  {busy ? "Analyzing your posting..." : "Results are warning signs, not proof."}
+                </span>
+                <span className="composer-spacer" />
+                <button
+                  className="primary"
+                  onClick={() => setFormOpen(true)}
+                  disabled={busy}
+                >
+                  Check another posting
+                </button>
+              </div>
+            )}
           </section>
 
           <ReportPanel report={report} onChooseYou={chooseYou} />
