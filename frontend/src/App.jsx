@@ -12,6 +12,7 @@ import {
   FOLLOW_UPS,
 } from "./services/api.js";
 import GuidanceCards from "./components/GuidanceCards.jsx";
+import PdfButton from "./components/PdfButton.jsx";
 import JobReport from "./JobReport.jsx";
 import { conversationFile, OVERRIDE_LABEL, ROUTED_NOTE, routePastedText } from "./services/conversation.js";
 import {
@@ -504,7 +505,6 @@ function ReportPanel({ report, onChooseYou }) {
   // Job postings have their own plain-language screen (JobReport.jsx); everything below is the chat report.
   if (report.type !== "chat") return <JobReport report={report} />;
 
-  const uncertaintyNotes = report.uncertainty_notes || [];
   const warningSigns = report.warning_signs || [];
   // With an evidence block the rule signs are listed there (citable as R1..), so not twice.
   const showWarningList = !report.evidence;
@@ -515,7 +515,10 @@ function ReportPanel({ report, onChooseYou }) {
 
   return (
     <aside className="panel">
-      <h2>Conversation report</h2>
+      <div className="panel-head">
+        <h2>Conversation report</h2>
+        <PdfButton title="Conversation report" />
+      </div>
 
       <Gauge
         score={chatScore(report)}
@@ -609,20 +612,6 @@ function ReportPanel({ report, onChooseYou }) {
       )}
 
       {showChatGuidance(report) && <GuidanceCards report={report} highlight={highlight} />}
-
-      <h3>Limitations and uncertainty</h3>
-
-      {uncertaintyNotes.length > 0 ? (
-        <ul className="notes">
-          {uncertaintyNotes.map((n, i) => (
-            <li key={`${i}-${n}`}>{n}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted">
-          No additional uncertainty notes were returned by the analysis.
-        </p>
-      )}
     </aside>
   );
 }

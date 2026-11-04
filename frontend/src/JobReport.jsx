@@ -1,4 +1,5 @@
 import GuidanceCards from "./components/GuidanceCards.jsx";
+import PdfButton from "./components/PdfButton.jsx";
 import ScoreRing from "./components/ScoreRing.jsx";
 import { highlightSegments } from "./services/highlight.js";
 import { buildMainScreen, technicalDetails } from "./services/reportView.js";
@@ -74,17 +75,6 @@ function HowDecided({ report }) {
       )}
 
       <GuidanceCards report={report} highlight={null} />
-
-      {tech.notes.length > 0 && (
-        <>
-          <h4>Limitations and uncertainty</h4>
-          <ul className="notes">
-            {tech.notes.map((n, i) => (
-              <li key={`${i}-${n}`}>{n}</li>
-            ))}
-          </ul>
-        </>
-      )}
     </details>
   );
 }
@@ -97,7 +87,10 @@ export default function JobReport({ report }) {
 
   return (
     <aside className="panel">
-      <h2>Job posting report</h2>
+      <div className="panel-head">
+        <h2>Job posting report</h2>
+        <PdfButton title="Job posting report" />
+      </div>
 
       {screen.headline && (
         <div className={`verdict ${screen.level}`} role="status">
